@@ -1,0 +1,10 @@
+{
+  "name": "premios-semanales",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Generador de piezas semanales de premios entregados (Galilei Learning)",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

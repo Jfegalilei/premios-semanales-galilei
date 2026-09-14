@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Premios entregados · Generador</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Radio+Canada+Big:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Rutas relativas: en GitHub Pages la página vive en /premios-semanales-galilei/. -->
+  <link rel="stylesheet" href="public/estilos.css">
+</head>
+<body>
+  <header class="barra">
+    <div>
+      <h1>Premios entregados</h1>
+      <p class="sub">Generador de la pieza semanal por compañía · carrusel para celular, una imagen por categoría</p>
+    </div>
+    <label class="boton primario">
+      Cargar CSV
+      <input type="file" id="entradaCsv" accept=".csv,text/csv" hidden>
+    </label>
+  </header>
+
+  <main>
+    <p id="avisoNube" class="aviso-nube" hidden></p>
+
+    <section id="zonaVacia" class="soltar">
+      <p>Suelta aquí el export de insights (<code>Compania, Player id, Premio, Fecha entrega, Player</code>)</p>
+      <p class="tenue">o usa el botón «Cargar CSV» de arriba. El archivo se lee en tu navegador y no se sube a ningún lado.</p>
+    </section>
+
+    <section id="panelFaltantes" class="tarjeta oculto">
+      <h2>Premios sin imagen</h2>
+      <p class="tenue">
+        Sube el PNG sin fondo de cada premio. Queda guardado en la biblioteca compartida
+        para todo el equipo y para las semanas siguientes.
+      </p>
+      <div id="listaFaltantes" class="faltantes"></div>
+    </section>
+
+    <section id="panelBiblioteca" class="tarjeta">
+      <details>
+        <summary id="resumenBiblioteca">Biblioteca de premios</summary>
+        <p class="tenue">
+          Suelta un PNG sobre la miniatura para reemplazar el recorte de un premio que ya
+          está subido. También puedes corregir el nombre, el valor, la categoría o cómo se
+          lista a los ganadores. Los cambios los ve todo el equipo.
+        </p>
+        <div id="listaBiblioteca" class="faltantes"></div>
+      </details>
+    </section>
+
+    <section id="panelTrabajo" class="trabajo oculto">
+      <aside class="tarjeta lateral">
+        <h2>Compañías</h2>
+        <ul id="listaCompanias" class="companias"></ul>
+      </aside>
+
+      <div class="tarjeta principal">
+        <div class="controles">
+          <label>
+            <span>Encabezado</span>
+            <input type="text" id="campoKicker" autocomplete="off">
+          </label>
+          <label>
+            <span>Título</span>
+            <input type="text" id="campoTitulo" value="Premios entregados" autocomplete="off">
+          </label>
+          <label>
+            <span>Etiqueta verde</span>
+            <input type="text" id="campoEtiqueta" value="La semana pasada" autocomplete="off">
+          </label>
+          <label>
+            <span>Premio destacado</span>
+            <select id="campoHeroe"></select>
+          </label>
+          <label>
+            <span>Composición</span>
+            <select id="campoModo">
+              <option value="carrusel" selected>Carrusel celular (1080 x 1920)</option>
+              <option value="collage">Collage horizontal</option>
+              <option value="reticula">Retícula horizontal</option>
+            </select>
+          </label>
+          <div class="acciones">
+            <button type="button" id="botonExportarTodo" class="boton"
+              title="Descarga las imágenes de TODAS las compañías en un ZIP">Exportar todo (ZIP)</button>
+            <button type="button" id="botonDescargar" class="boton primario">Descargar JPG</button>
+          </div>
+        </div>
+
+        <div id="vistaCarrusel" class="vista carrusel"></div>
+
+        <div id="vistaUnica" class="oculto">
+          <div class="vista">
+            <canvas id="vistaPrevia" title="Arrastra el personaje para colocarlo"></canvas>
+          </div>
+          <p class="tenue pie-vista">
+            <span>
+              Arrastra el personaje en la vista previa para colocarlo. La posición se guarda
+              para esa pose en todas las piezas con esa misma cantidad de premios.
+            </span>
+            <button type="button" id="botonPersonaje" class="enlace" hidden>
+              Devolver a su sitio automático
+            </button>
+          </p>
+        </div>
+
+        <p id="avisoPieza" class="tenue"></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script type="module" src="public/app.js"></script>
+</body>
+</html>

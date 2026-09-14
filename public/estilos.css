@@ -1,0 +1,243 @@
+:root {
+  --fondo: #0d0f11;
+  --panel: #16191d;
+  --panel-alto: #1d2126;
+  --borde: #2a2f36;
+  --texto: #e8eaed;
+  --tenue: #9aa2ad;
+  --lima: #c9f73f;
+  --tinta: #101010;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font: 14px/1.5 "Radio Canada Big", "Segoe UI", system-ui, sans-serif;
+}
+
+h1 { font-size: 18px; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+h2 { font-size: 13px; margin: 0 0 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--tenue); }
+p { margin: 6px 0; }
+code { background: var(--panel-alto); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+.tenue { color: var(--tenue); font-size: 12.5px; }
+.aviso-nube {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid #6b3a2e;
+  background: #2a1814;
+  color: #f3c3b5;
+  border-radius: 8px;
+}
+.oculto { display: none !important; }
+
+.barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--borde);
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.barra .sub { margin: 2px 0 0; color: var(--tenue); font-size: 12.5px; }
+
+main { padding: 24px 28px 64px; display: grid; gap: 20px; }
+
+.boton {
+  border: 1px solid var(--borde);
+  background: var(--panel-alto);
+  color: var(--texto);
+  padding: 9px 18px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.boton:hover { border-color: #3a414a; }
+.boton.primario { background: var(--lima); color: var(--tinta); border-color: var(--lima); }
+.boton.primario:hover { filter: brightness(1.08); }
+.boton:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.soltar {
+  border: 1px dashed var(--borde);
+  border-radius: 12px;
+  padding: 72px 24px;
+  text-align: center;
+  background: var(--panel);
+}
+.soltar.activa { border-color: var(--lima); background: #1a1f16; }
+
+.tarjeta {
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+/* Premios sin imagen y biblioteca */
+#panelBiblioteca summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tenue);
+  list-style: none;
+}
+#panelBiblioteca summary::marker, #panelBiblioteca summary::-webkit-details-marker { display: none; }
+#panelBiblioteca summary::before { content: "+ "; color: var(--lima); }
+#panelBiblioteca details[open] summary::before { content: "− "; }
+#panelBiblioteca details[open] summary { margin-bottom: 10px; }
+
+.faltantes { display: grid; gap: 12px; margin-top: 14px; }
+.faltante {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  background: var(--panel-alto);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.faltante .miniatura {
+  width: 120px; height: 90px;
+  border: 1px dashed var(--borde);
+  border-radius: 8px;
+  display: grid; place-items: center;
+  background:
+    linear-gradient(45deg, #1a1d21 25%, transparent 25%) 0 0/16px 16px,
+    linear-gradient(-45deg, #1a1d21 25%, transparent 25%) 0 8px/16px 16px,
+    linear-gradient(45deg, transparent 75%, #1a1d21 75%) 8px -8px/16px 16px,
+    linear-gradient(-45deg, transparent 75%, #1a1d21 75%) -8px 0/16px 16px;
+  cursor: pointer;
+  overflow: hidden;
+}
+.faltante .miniatura img { max-width: 100%; max-height: 100%; }
+.faltante .miniatura .pista { color: var(--tenue); font-size: 11px; text-align: center; padding: 4px; }
+.faltante .miniatura:hover { border-color: var(--lima); }
+.faltante .campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.faltante .textos { color: var(--tenue); font-size: 11.5px; grid-column: 1 / -1; }
+
+label { display: grid; gap: 5px; font-size: 12px; color: var(--tenue); }
+input[type="text"], select {
+  width: 100%;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  color: var(--texto);
+  border-radius: 7px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  min-width: 0;
+}
+input[type="text"]:focus, select:focus { outline: none; border-color: var(--lima); }
+input[type="text"]:disabled {
+  background: transparent;
+  border-style: dashed;
+  color: var(--tenue);
+  cursor: not-allowed;
+}
+
+/* Trabajo */
+.trabajo { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 20px; align-items: start; }
+.companias { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.companias button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--texto);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+.companias button:hover { background: var(--panel-alto); }
+.companias button[aria-current="true"] { background: var(--panel-alto); border-color: var(--lima); }
+.companias .meta { color: var(--tenue); font-size: 11.5px; white-space: nowrap; }
+.companias .alerta { color: var(--lima); }
+
+/* Los campos se reparten solos y saltan de línea antes que apretarse: con
+   anchos fijos se solapaban y no se leía lo que había escrito dentro. */
+.controles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 14px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+.controles label { min-width: 0; }
+/* Los botones van SIEMPRE en su propia fila, ocupando el ancho entero: metidos en
+   una celda de la rejilla se montaban encima del selector de Composición. */
+.controles .acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+  justify-content: flex-end;
+  grid-column: 1 / -1;
+}
+.controles .boton { height: 38px; }
+
+.vista {
+  background: #0a0b0c;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 12px;
+  overflow: auto;
+}
+.vista canvas { width: 100%; height: auto; display: block; border-radius: 6px; }
+
+/* Carrusel: las diapositivas en fila, con scroll lateral si no caben. */
+.vista.carrusel {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+.diapositiva {
+  margin: 0;
+  flex: 0 0 clamp(220px, 23%, 340px);
+  scroll-snap-align: start;
+}
+.diapositiva figcaption { color: var(--tenue); font-size: 12px; margin-top: 6px; }
+
+@media (max-width: 1100px) {
+  .trabajo { grid-template-columns: 1fr; }
+}
+
+/* El personaje se arrastra por la vista previa para colocarlo a mano. */
+#vistaPrevia { cursor: grab; touch-action: none; }
+#vistaPrevia.arrastrando { cursor: grabbing; }
+
+/* Pie de la vista previa: la ayuda a la izquierda y, cuando hace falta, el enlace
+   para devolver al personaje a su sitio. */
+.pie-vista {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.enlace {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--lima, #c9f73f);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+}

@@ -1,0 +1,16 @@
+node_modules/
+
+# Datos con nombres reales de jugadores: nunca al repositorio.
+*.csv
+salidas/
+Template Analythics/
+
+# La biblioteca vive en Firestore. Esto es el respaldo local y su importador.
+catalogo.json
+personajes.json
+premios/
+herramientas/
+
+# Originales pesados: la web usa los WebP de Assets/Personajes.
+Assets/Personajes/*.png
+Assets/Escenarios/
