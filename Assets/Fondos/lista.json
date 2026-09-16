@@ -1,0 +1,10 @@
+{
+  "_nota": "Escenarios de la pieza de celular, ya recortados a 1080 x 1792. Los originales viven en Assets/Escenarios/, que no va al repositorio; estos WebP sí, porque la web publicada los necesita.",
+  "_brillo": "El diseño oscurece el fondo un 45 % y le monta un degradado negro desde el pie, así que solo sirven escenarios CLAROS. `frondaria-hd` es el del Figma (75 % de brillo medio en la mitad superior). Los `frondaria-bg-*` y `carmesia` del repositorio son versiones nocturnas (5-17 %): bajo ese tratamiento quedan en negro y se pierde el paisaje, así que están convertidos pero fuera de esta lista. Para añadir uno: recórtalo a 1080 x 1792, comprueba que pasa del 30 % de brillo y apúntalo aquí.",
+  "fondos": [
+    "Assets/Fondos/frondaria-hd.webp",
+    "Assets/Fondos/nerelia-bg.webp",
+    "Assets/Fondos/ambaria-bg.webp",
+    "Assets/Fondos/lunara-bg.webp"
+  ]
+}

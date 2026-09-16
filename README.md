@@ -3,8 +3,12 @@
 Convierte el export de insights (`Compania, Player id, Premio, Fecha entrega, Player`)
 en las imágenes de premios de cada compañía.
 
-- **Carrusel celular** (por defecto): una imagen de 1080 × 1920 por categoría —Plata, Bonos,
-  Electrodomésticos y electrónicos—, pensada para mandar por WhatsApp.
+- **Celular** (por defecto): una imagen vertical de 1080 × 1792 con **todos los premios
+  juntos** y los ganadores en un solo bloque al pie, pensada para mandar por WhatsApp. Sigue
+  el rediseño de diciembre de 2026 ([Figma, frame `Plantillas Premios`][figma]). Si hay más de
+  siete premios se parte en varias páginas, repartidas parejo.
+
+  [figma]: https://www.figma.com/design/Cn8rwdQRIBy8P0iYQGJbCz/Galiverso----Galilei-Learning?node-id=14985-4931
 - **Collage / retícula horizontal**: la pieza original de 4788 px de ancho.
 
 Web: <https://jfegalilei.github.io/premios-semanales-galilei/>
@@ -54,15 +58,94 @@ lo editado desde la web.
 |---|---|
 | `index.html` | La página. |
 | `server.js` | Servidor estático para probar en local. |
+| `herramientas/vista-celular.html` | Banco de pruebas: dibuja las plantillas de celular con premios y ganadores de mentira, sin CSV ni Firestore. Acepta `?n=`, `?ancho=`, `?ganadores=`, `?fondo=` y `?personaje=`. |
 | `marca/` | `logo-galilei.png`, exportado a 4x del propio Figma. |
-| `Assets/Personajes/` | Gali y Syderax en WebP, listados en `lista.json`. Uno sale en cada pieza. |
+| `Assets/Personajes/` | Las poses de Gali en WebP, listadas en `lista.json`. Una sale en cada pieza. |
+| `Assets/Fondos/` | Escenarios recortados a 1080 × 1792 para la pieza de celular, listados en `lista.json`. |
+| `Assets/Iconos/` | `trofeo.webp`, el icono 3D de la cabecera de la pieza de celular. |
 | `public/app.js` | Orquestación: CSV, biblioteca, vista previa y descargas. |
 | `public/lib/nube.js` | Conexión con Firestore. |
 | `public/lib/csv.js` | Parseo del export (BOM, comillas, acentos). |
 | `public/lib/normalizador.js` | Texto libre del premio → familia del catálogo. |
-| `public/lib/carrusel.js` | Carrusel para celular. |
+| `public/lib/carrusel.js` | Pieza de celular: las siete plantillas del rediseño. |
 | `public/lib/plantillas.js` | Geometría de la pieza horizontal por cantidad de premios. |
 | `public/lib/lienzo.js` | Render de la pieza horizontal y trazado de las punteadas. |
+
+## La pieza de celular
+
+`carrusel.js` lleva una **tabla de siete plantillas**, una por cantidad de premios, con la
+geometría copiada del Figma en unidades de 1080 × 1792 (el lienzo real sale al doble). Con 1
+premio va una tarjeta grande; con 6, una retícula de 3 × 2; con 7, dos tríos y el premio
+principal en grande con los ganadores al lado. Los premios se ordenan por valor, así que en la
+plantilla de 7 el más caro es el que va grande.
+
+Al lado del nombre va un **contador «xN»** —pill verde con la tinta de marca— cuando de ese
+premio se entregó más de uno. Se pega al final de la última línea del nombre y, si ahí no cabe,
+baja a una línea propia.
+
+Debajo, en verde, **cuánto se repartió en total**. Solo sale en los premios con
+`desglose: por-monto` —Nequi y los bonos—, que son los únicos donde el valor cambia de una
+entrega a otra; en una freidora el nombre ya lo dice todo. Se calcula sumando las **entregas**,
+no los ganadores: quien recibió dos bonos puso dos veces, así que no se puede sacar de
+`datos.montos`, que deduplica jugadores por monto. El valor va aparte del nombre a propósito:
+antes se concatenaba («Bono Nequi de $50.000») y solo aparecía cuando la pieza horizontal
+abría el premio por monto, de modo que en la pieza de celular se perdía.
+
+No se listan los montos uno por uno: en una semana real Nequi llega a diez valores distintos
+(de $5.000 a $100.000), que no caben en una tarjeta de 322 px.
+
+Cuatro cosas se apartan del Figma a propósito:
+
+- **El ancho del nombre del premio.** El diseño le da 208 px en las tarjetas grandes, que es lo
+  que mide su texto de muestra («Nombre de Producto»). Con nombres de premio de verdad ese
+  ancho trunca casi todo aunque sobre media tarjeta, así que se usa el ancho útil de la
+  tarjeta. Cuando el nombre cabe en una línea, el resultado es idéntico.
+- **El tamaño del nombre.** El diseño lo escala con la tarjeta: 24 px en las chicas, 32 en las
+  grandes, 48 en la de un solo premio y 59,5 en la apaisada. Eso hacía que el mismo premio se
+  leyera muy distinto según cuántos hubiera esa semana, así que va a 32 en todas
+  (`D.nombreFuente`).
+- **El alto de la caja de ganadores.** En el diseño es fijo y cambia por plantilla. Aquí se
+  estira hasta un pie común de 1736 cuando la plantilla deja aire debajo, y así caben más
+  nombres sin bajar de los 24 px: la de un premio pasa de 15 huecos a 21. Su `x`, `w` e `y`
+  siguen siendo los del diseño, que es lo que la mantiene alineada con la retícula. La de siete
+  premios no se estira: va pareada con la tarjeta grande de al lado.
+- **El desenfoque de la caja de ganadores.** El diseño le pone un `backdrop-blur` de 7,6 px.
+  A esa altura el degradado negro del pie ya cubre el fondo al ~56 %, así que el desenfoque no
+  se distingue y no se implementa.
+
+Lo que no cabe se resume en **«+N más»** en verde. Cada página lista solo los ganadores de
+*sus* premios, y quien ganó dos cosas sale una sola vez.
+
+### Las dos opacidades, medidas
+
+Los valores del CSS de Figma no se pueden copiar tal cual, así que se sacaron muestreando el
+render del frame y comparándolo con el fondo desnudo (por el hueco entre tarjetas, y por fuera
+de la caja de ganadores):
+
+- **Tarjetas.** El CSS declara la franja de luz de 0 a 0,2, pero con los dos stops fuera de la
+  caja (8,5 % y 105,94 %) lo que se ve va de **0,035 abajo a 0,185 arriba** — nunca llega a
+  transparente. Tomándolo literal, la mitad inferior de cada tarjeta salía demasiado limpia.
+- **Caja de ganadores.** Va en `multiply`, no en `source-over`: el fondo baja a un factor de
+  0,57-0,71 y eso solo lo da el multiply (con `source-over` daba 0,78, bastante más claro).
+  Su degradado tampoco va de esquina a esquina: el eje de un degradado CSS pasa por el centro
+  con el ángulo dado (156,77°) y mide `|w·sin| + |h·cos|`; tomándolo por la esquina, el lado
+  derecho de la caja se quedaba casi sin oscurecer.
+
+El banco de pruebas sirve para repetir la medición si el diseño cambia.
+
+El **personaje** se recorta solo por abajo, donde el corte lo explica el borde de la retícula.
+La banda de recorte va de lado a lado del lienzo a propósito: encajándolo también por el ancho
+de su caja (422 px), cuatro de las diez poses —las de proporción ancha, como `image 110365` a
+1,20— la llenaban de lado a lado y perdían un costado cortado en el aire. Ahora se escala por
+el alto y se le deja asomar a los lados; solo cede tamaño si fuera más ancho que la pieza. El
+título se pinta **encima** del personaje, como en el diseño, que es lo que lo mantiene legible
+cuando una pose ancha llega a solaparlo.
+
+Escenario y personaje se eligen con la misma semilla (compañía + fecha + página), así que
+cambian cada semana pero no entre repintados. **Solo sirven escenarios claros**: el diseño
+oscurece el fondo un 45 % y le monta un degradado negro desde el pie, así que los
+`frondaria-bg-*` del repositorio —que son versiones nocturnas, del 5 al 17 % de brillo— quedan
+en negro y están fuera de `Assets/Fondos/lista.json`. Ahí solo entran los que pasan del 30 %.
 
 ## Cómo agrupa los premios
 
@@ -201,14 +284,18 @@ Para dejarlo offline basta con poner los `.woff2` en `marca/` y cambiar las dos 
 
 ## El personaje
 
-Cada pieza saca **un personaje, y solo uno**: Gali o Syderax, pose al azar, de
-`Assets/Personajes/` (añadir una pose es soltar el PNG en la carpeta; el servidor la
-lista en `/api/personajes`). Uno por pieza y no uno por premio a propósito: con siete
+Cada pieza saca **un personaje, y solo uno**: una pose de Gali al azar de las que lista
+`Assets/Personajes/lista.json`. Uno por pieza y no uno por premio a propósito: con siete
 estrellas verdes al lado de siete chips verde lima el producto deja de ser el
 protagonista.
 
-**Syderax se dibuja al doble de alto que Gali** — 2300 px contra 1150 (`PERSONAJE.alto`
-en `lienzo.js`).
+**Solo Galis.** Syderax y el dragón salieron de la lista; sus WebP siguen en la carpeta
+por si hicieran falta, pero nada los usa. `PERSONAJE.alto` en `lienzo.js` aún tiene la
+regla que dibujaba a Syderax al doble de alto (2300 px contra 1150) y `personajes.json`
+guarda posiciones suyas: no molestan, pero ya no se ejercitan.
+
+Para añadir una pose: suelta el PNG en la carpeta, conviértelo a WebP (alto 1400,
+calidad 88) y apúntalo en `lista.json`. Los PNG originales no van al repositorio.
 
 ### Dónde se pone
 
@@ -244,8 +331,8 @@ colocarlo a mano.
 En la vista previa el personaje **se arrastra**. Al soltarlo, la posición se guarda en
 `personajes.json` bajo la clave `modo-cantidad-pose` (`collage-5-gali-42`), así que vale
 para **todas las piezas con esa misma cantidad de premios**, no solo para la compañía que
-tienes delante — pero **solo para esa pose**: Syderax mide el doble que Gali y tiene otra
-silueta, así que el sitio que le va bien a uno no tiene por qué irle al otro.
+tienes delante — pero **solo para esa pose**: cada Gali tiene su silueta y su proporción,
+así que el sitio que le va bien a uno no tiene por qué irle al otro.
 
 Al agarrar un personaje se dibuja a su tamaño normal, aunque el cálculo lo hubiera
 encogido para que cupiera: así lo que arrastras es lo que queda.

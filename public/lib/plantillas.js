@@ -29,6 +29,16 @@ export const ESTILO = {
   cajaFondoCollage: 'rgba(10, 12, 14, 0.62)',
   cajaBordeCollage: 'rgba(255, 255, 255, 0.16)',
   punteada: 'rgba(255, 255, 255, 0.44)',
+
+  // Tokens del sistema de diseño, tal como los nombra Figma. La pieza de celular
+  // (`carrusel.js`) va con estos; el verde `lima` de arriba es el de las piezas
+  // horizontales, que el rediseño no toca.
+  g500: '#B3F131',
+  tintaChip: '#051216',
+  neutral00: 'rgba(10, 11, 12, 0.56)',
+  neutral05: '#58606C',
+  neutral07: '#C7CCD4',
+
   // Dos familias de marca: la display para titular y chips verdes, la mono-ish
   // para la lista de ganadores. Radio Canada Big llega hasta el peso 700
   // (no tiene 900), así que el titular va en 700.

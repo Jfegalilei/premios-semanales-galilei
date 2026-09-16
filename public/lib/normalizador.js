@@ -81,7 +81,11 @@ export function normalizarPremio(texto, catalogo = []) {
     if ((entrada.alias || []).some((a) => a.toLowerCase() === bruto.toLowerCase())) {
       return {
         id: entrada.id,
-        monto: montoSuelto(bruto),
+        // El monto solo se rasca del texto si la familia se desglosa por monto.
+        // `montoSuelto` coge el primer número que encuentra, y en un alias como
+        // "CinecoPass Premium x2" ese número es el "2" de la cantidad de entradas,
+        // no un precio: leerlo como monto le ponía un valor de $2 al premio.
+        monto: entrada.desglose === 'por-monto' ? montoSuelto(bruto) : null,
         unidadMonto: entrada.unidadMonto || null,
         propuesta: null,
       };

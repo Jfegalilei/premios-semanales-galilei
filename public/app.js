@@ -9,6 +9,7 @@ import {
 import { ESTILO, maxGrupos } from './lib/plantillas.js';
 import {
   armarCarrusel, dibujarDiapositiva, CATEGORIAS, categoriaPorDefecto,
+  MAX_PREMIOS, capacidadGanadores,
 } from './lib/carrusel.js';
 import {
   escucharPremios, guardarPremio, escucharPosiciones, guardarPosiciones,
@@ -22,12 +23,14 @@ const estado = {
   seleccion: null,
   imagenes: new Map(),  // id -> HTMLImageElement
   logo: null,
-  personajes: [],       // Gali y Syderax: uno sale en el hueco de cada pieza
+  trofeo: null,         // el icono 3D de la cabecera de la pieza de celular
+  personajes: [],       // poses de Gali: una sale en el hueco de cada pieza
+  fondos: [],           // escenarios verticales: uno de fondo en la pieza de celular
   tirada: '',           // se renueva con cada CSV: reparte los personajes de nuevo
   posiciones: {},       // `modo-cantidad` -> centro colocado a mano
   personajePieza: null, // el de la pieza en pantalla, para poder arrastrarlo
   heroeManual: null,
-  // 'carrusel' (celular, una imagen por categoría), 'collage' o 'reticula'.
+  // 'carrusel' (celular, todos los premios juntos), 'collage' o 'reticula'.
   modo: 'carrusel',
   lienzosCarrusel: [],  // se reutilizan entre repintados: cada uno pesa ~30 MB
   diapositivas: [],     // [{ canvas, nombre }] del carrusel en pantalla
@@ -41,7 +44,9 @@ init();
 
 async function init() {
   estado.logo = await cargarImagen('marca/logo-galilei.png').catch(() => null);
+  estado.trofeo = await cargarImagen('Assets/Iconos/trofeo.webp').catch(() => null);
   await cargarPersonajes();
+  await cargarFondos();
 
   // Biblioteca y posiciones llegan de Firestore y se quedan escuchando: si otra
   // persona sube un recorte o mueve un personaje, aquí se ve sin recargar.
@@ -101,6 +106,8 @@ async function init() {
     `400 ${ESTILO.listaFuente}px ${ESTILO.fuenteGanadores}`,
     // El carrusel pinta los importes en negrita.
     `700 ${ESTILO.listaFuente}px ${ESTILO.fuenteGanadores}`,
+    // La pieza de celular: el cliente y la lista de ganadores van en Medium.
+    `500 ${ESTILO.listaFuente}px ${ESTILO.fuenteGanadores}`,
   ];
   await Promise.all(caras.map((c) => document.fonts.load(c).catch(() => {})));
   await document.fonts.ready.catch(() => {});
@@ -168,9 +175,9 @@ async function comprimirRecorte(dataUrl) {
   throw new Error('El recorte es demasiado pesado incluso comprimido.');
 }
 
-// Gali y Syderax. Se listan en Assets/Personajes/lista.json, así que añadir una
-// pose es soltar el WebP en la carpeta y apuntarlo en la lista. Se les mide la caja de píxeles igual que a los
-// premios, para encajarlos por el dibujo y no por el aire transparente del PNG.
+// Las poses de Gali. Se listan en Assets/Personajes/lista.json, así que añadir una pose
+// es soltar el WebP en la carpeta y apuntarlo en la lista. Se les mide la caja de píxeles
+// igual que a los premios, para encajarlos por el dibujo y no por el aire transparente.
 async function cargarPersonajes() {
   const res = await fetch('Assets/Personajes/lista.json').catch(() => null);
   const datos = res && res.ok ? await res.json() : {};
@@ -186,6 +193,21 @@ async function cargarPersonajes() {
     return img;
   }));
   estado.personajes = cargadas.filter(Boolean);
+}
+
+// Escenarios de fondo de la pieza de celular, ya recortados a 1080 x 1792 y
+// listados en Assets/Fondos/lista.json. Van a sangre y muy oscurecidos, así que
+// no se les mide la caja de píxeles: se dibujan a `cover` y punto.
+async function cargarFondos() {
+  const res = await fetch('Assets/Fondos/lista.json').catch(() => null);
+  const datos = res && res.ok ? await res.json() : {};
+  const cargadas = await Promise.all((datos.fondos || []).map(async (ruta) => {
+    const url = ruta.split('/').map(encodeURIComponent).join('/');
+    const img = await cargarImagen(url).catch(() => null);
+    if (img) img.nombre = ruta;
+    return img;
+  }));
+  estado.fondos = cargadas.filter(Boolean);
 }
 
 function cargarImagen(src) {
@@ -406,7 +428,7 @@ function crearFilaPremio(id, { grupo = null, entrada = null } = {}) {
       </label>
       <label><span>Valor aprox. (COP)</span>
         <input type="text" data-campo="valor" inputmode="numeric" placeholder="sin definir"></label>
-      <label><span>Categoría (carrusel)</span>
+      <label><span>Categoría</span>
         <select data-campo="categoria">
           ${CATEGORIAS.map((c) => `<option value="${c.id}">${c.titulo}</option>`).join('')}
         </select>
@@ -713,6 +735,23 @@ function armarGrupo(grupo) {
     datos.nombres = [...new Set(grupo.entregas.map((e) => e.jugador))];
   }
 
+  // Cuánto se repartió en total. Solo sale en los premios que se entregan por
+  // monto —Nequi y los bonos—, que son los únicos donde el valor cambia de una
+  // entrega a otra: el resto ya lo dice el nombre del producto.
+  //
+  // Suma las ENTREGAS, no los ganadores: quien recibió dos bonos puso dos veces.
+  // Por eso no se puede sacar de `datos.montos`, que deduplica jugadores.
+  //
+  // Hace falta comprobar el desglose y no solo que haya monto: un premio por
+  // nombre puede arrastrar un número rascado de su propio texto —el "x2" de
+  // "CinecoPass Premium x2"— y sumarlo daba un total de "$2".
+  const porMontos = desglose === 'por-monto' && unidad && !grupo.monto
+    ? grupo.entregas.filter((e) => e.monto > 0)
+    : [];
+  datos.total = porMontos.length
+    ? formatearMonto(porMontos.reduce((s, e) => s + e.monto, 0), unidad)
+    : null;
+
   return datos;
 }
 
@@ -843,7 +882,7 @@ function repintarConPersonaje() {
   dibujarPieza(lienzo, {
     kicker: $('#campoKicker').value.trim(),
     titulo: $('#campoTitulo').value.trim() || 'Premios entregados',
-    etiqueta: $('#campoEtiqueta').value.trim(),
+    etiqueta: etiquetaDe(compania),
     logo: estado.logo,
     modo: estado.modo,
     grupos: visibles.map(armarGrupo),
@@ -912,7 +951,7 @@ function pintar() {
     dibujarPieza(lienzo, {
       kicker: $('#campoKicker').value.trim(),
       titulo: $('#campoTitulo').value.trim() || 'Premios entregados',
-      etiqueta: $('#campoEtiqueta').value.trim(),
+      etiqueta: etiquetaDe(compania),
       logo: estado.logo,
       modo: estado.modo,
       grupos: visibles.map(armarGrupo),
@@ -947,29 +986,16 @@ function pintar() {
   $('#avisoPieza').textContent = avisos.join(' · ');
 }
 
-/* ---------- carrusel para celular ---------- */
+/* ---------- pieza de celular ---------- */
 
-// Categoría de un premio: la de catalogo.json si está, y si no una deducida.
-function categoriaDe(grupo) {
-  const id = grupo.baseId || grupo.id;
-  const entrada = estado.catalogo.find((p) => p.id === id);
-  if (CATEGORIAS.some((c) => c.id === entrada?.categoria)) return entrada.categoria;
-  return categoriaPorDefecto(id, entrada?.desglose || grupo.propuesta?.desglose);
-}
-
-// Una imagen por categoría (o más si no cabe), con los premios de más valor arriba.
+// Todos los premios de la compañía, los de más valor primero. El rediseño los
+// muestra juntos y sin separar por categoría; si pasan de `MAX_PREMIOS` se
+// reparten en varias páginas.
 function diapositivasDe(compania) {
-  const categorias = CATEGORIAS.map((c) => ({ ...c, grupos: [] }));
-  for (const grupo of compania.base) {
-    const cat = categorias.find((c) => c.id === categoriaDe(grupo)) || categorias[categorias.length - 1];
-    cat.grupos.push(grupo);
-  }
-  return armarCarrusel(categorias.map((c) => ({
-    ...c,
-    grupos: c.grupos
-      .sort((a, b) => valorDe(b) - valorDe(a) || b.conteo - a.conteo)
-      .map(armarGrupo),
-  })));
+  const grupos = [...compania.base]
+    .sort((a, b) => valorDe(b) - valorDe(a) || b.conteo - a.conteo)
+    .map(armarGrupo);
+  return armarCarrusel(grupos);
 }
 
 function pintarCarrusel(compania) {
@@ -984,7 +1010,7 @@ function pintarCarrusel(compania) {
   const comunes = {
     kicker: $('#campoKicker').value.trim(),
     titulo: $('#campoTitulo').value.trim() || 'Premios entregados',
-    etiqueta: $('#campoEtiqueta').value.trim(),
+    etiqueta: etiquetaDe(compania),
     logo: estado.logo,
   };
 
@@ -997,22 +1023,25 @@ function pintarCarrusel(compania) {
       dibujarDiapositiva(canvas, {
         ...comunes,
         diapositiva: d,
-        indice: i,
-        total: diapositivas.length,
         personaje: personajeDe(estado.personajes, `${semilla}|${i}`),
+        // `personajeDe` es solo «elige uno de la lista con esta semilla»: sirve
+        // igual para el escenario, y así el fondo también cambia cada semana.
+        fondo: personajeDe(estado.fondos, `fondo|${semilla}|${i}`),
+        trofeo: estado.trofeo,
       });
 
       const figura = document.createElement('figure');
       figura.className = 'diapositiva';
       const pie = document.createElement('figcaption');
-      const parte = d.categoria.partes > 1 ? ` (${d.categoria.parte} de ${d.categoria.partes})` : '';
-      pie.textContent = `${i + 1}. ${d.categoria.titulo}${parte}`;
+      const parte = d.partes > 1 ? `Página ${d.parte} de ${d.partes}` : 'Pieza de celular';
+      pie.textContent = `${parte} · ${d.grupos.length} ${d.grupos.length === 1 ? 'premio' : 'premios'}`;
       figura.append(canvas, pie);
       contenedor.append(figura);
 
+      const sufijo = d.partes > 1 ? `-${i + 1}` : '';
       estado.diapositivas.push({
         canvas,
-        nombre: `premios-${slug(compania.nombre)}-${fecha}-carrusel-${i + 1}-${d.categoria.id}.${SALIDA.extension}`,
+        nombre: `premios-${slug(compania.nombre)}-${fecha}-celular${sufijo}.${SALIDA.extension}`,
       });
     });
   } catch (err) {
@@ -1022,12 +1051,18 @@ function pintarCarrusel(compania) {
   }
 
   const sinImagen = compania.base.filter((g) => !estado.imagenes.has(g.id)).length;
+  const sobran = diapositivas.some((d) => d.ganadores.length > capacidadGanadores(d.grupos.length));
   const avisos = [
     diapositivas.length
-      ? `${compania.entregas.length} entregas · ${diapositivas.length} ${diapositivas.length === 1 ? 'imagen' : 'imágenes'} de 1080 x 1920`
+      ? `${compania.entregas.length} entregas · ${diapositivas.length} ${diapositivas.length === 1 ? 'imagen' : 'imágenes'} de 1080 x 1792`
       : 'Esta compañía no tiene premios que mostrar',
+    diapositivas.length > 1
+      ? `${compania.base.length} premios: pasan de ${MAX_PREMIOS}, así que van en ${diapositivas.length} páginas`
+      : '',
+    sobran ? 'Hay más ganadores que sitio: los últimos se resumen en «+N más»' : '',
     sinImagen > 0 ? `${sinImagen} sin recorte: aparecen como marcador` : '',
     !estado.logo ? 'Falta marca/logo-galilei.png' : '',
+    !estado.fondos.length ? 'Faltan los escenarios de Assets/Fondos' : '',
   ].filter(Boolean);
   $('#botonPersonaje').hidden = true;
   $('#avisoPieza').textContent = avisos.join(' · ');
@@ -1111,6 +1146,29 @@ function descargarBlob(blob, nombre) {
   a.download = nombre;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+// La etiqueta verde. Si el campo está vacío, dice las fechas de la semana de las
+// entregas —de lunes a domingo, la que contiene la entrega más reciente—, p. ej.
+// «7 Sept - 13 Sept». Lo que se escriba a mano manda sobre eso.
+function etiquetaDe(compania) {
+  const escrita = $('#campoEtiqueta').value.trim();
+  if (escrita || !compania) return escrita;
+  return rangoSemana(fechaMaxima(compania.entregas));
+}
+
+const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sept', 'Oct', 'Nov', 'Dic'];
+
+function rangoSemana(fechaISO) {
+  const [a, m, d] = fechaISO.split('-').map(Number);
+  const dia = new Date(Date.UTC(a, m - 1, d));
+  // getUTCDay: domingo es 0. Se retrocede hasta el lunes.
+  const lunes = new Date(dia);
+  lunes.setUTCDate(dia.getUTCDate() - ((dia.getUTCDay() + 6) % 7));
+  const domingo = new Date(lunes);
+  domingo.setUTCDate(lunes.getUTCDate() + 6);
+  const texto = (f) => `${f.getUTCDate()} ${MESES[f.getUTCMonth()]}`;
+  return `${texto(lunes)} - ${texto(domingo)}`;
 }
 
 function fechaMaxima(entregas) {

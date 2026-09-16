@@ -1,13 +1,15 @@
 {
+  "_nota": "Solo Galis. Para añadir una pose: suelta el PNG en esta carpeta, conviértelo a WebP (alto 1400, calidad 88) y apúntalo aquí. Los PNG originales no van al repositorio; la web usa estos WebP.",
   "personajes": [
+    "Assets/Personajes/Gali-05.webp",
     "Assets/Personajes/Gali-14.webp",
+    "Assets/Personajes/Gali-24.webp",
+    "Assets/Personajes/Gali-39.webp",
+    "Assets/Personajes/Gali-40.webp",
+    "Assets/Personajes/Gali-41.webp",
     "Assets/Personajes/Gali-42.webp",
     "Assets/Personajes/Gali-45.webp",
     "Assets/Personajes/Gali-49.webp",
-    "Assets/Personajes/Gali-55.webp",
-    "Assets/Personajes/Syderax Arrogant 1.webp",
-    "Assets/Personajes/Syderax Laughing 1.webp",
-    "Assets/Personajes/Syderax Planning 1.webp",
-    "Assets/Personajes/image 110365.webp"
+    "Assets/Personajes/Gali-55.webp"
   ]
 }

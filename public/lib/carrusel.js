@@ -1,27 +1,31 @@
-// Carrusel para celular: una imagen vertical de 1080 x 1920 por categoría de
-// premio (plata, bonos, electrodomésticos y electrónicos).
+// Pieza vertical para celular: 1080 x 1792, el frame `Plantillas Premios` del
+// rediseño (Figma 14985-4931).
 //
-// La pieza horizontal de 4788 px se ve diminuta en un teléfono: siete premios con
-// sus listas no caben en una pantalla vertical sin que el texto quede ilegible.
-// Aquí cada categoría va en su propia imagen y, si no cabe, se parte en dos.
+// A diferencia de la versión anterior, ya NO se dice quién ganó cada premio ni se
+// separa por categoría: los premios salen todos juntos en una retícula y los
+// ganadores van en un solo bloque al pie. Si hay más de siete premios la pieza se
+// parte en varias páginas, repartidas parejo, y cada página lista los ganadores
+// de SUS premios.
 //
-// Todo se dibuja en unidades de 1080 x 1920 y el lienzo real sale a `escala`, así
-// que el JPG queda nítido aunque el diseño se piense a tamaño de pantalla.
+// La geometría de las siete plantillas (una por cantidad de premios) está copiada
+// tal cual del diseño, en unidades de 1080 x 1792; el lienzo real sale a `escala`.
 
-import { contener, redondeado, recortar, curvaPunteada } from './lienzo.js';
+import { contener, redondeado, recortar } from './lienzo.js';
 import { ESTILO } from './plantillas.js';
 
-export const CARRUSEL = { ancho: 1080, alto: 1920, escala: 2 };
+export const CARRUSEL = { ancho: 1080, alto: 1792, escala: 2 };
 
-// Orden en que salen en el carrusel.
+// Lo que cubre el diseño. Con más premios la pieza se parte en páginas.
+export const MAX_PREMIOS = 7;
+
+// Las categorías ya no parten la pieza, pero siguen siendo un dato editable del
+// catálogo (la Biblioteca las usa), así que el listado se queda aquí.
 export const CATEGORIAS = [
   { id: 'plata', titulo: 'Plata' },
   { id: 'bonos', titulo: 'Bonos' },
   { id: 'electro', titulo: 'Electrodomésticos y electrónicos' },
 ];
 
-// Para premios que aún no tienen categoría en catalogo.json. Se puede corregir
-// desde la Biblioteca.
 export function categoriaPorDefecto(id, desglose) {
   const texto = String(id || '').toLowerCase();
   if (/nequi|daviplata|efectivo|transferencia|plata/.test(texto)) return 'plata';
@@ -29,171 +33,287 @@ export function categoriaPorDefecto(id, desglose) {
   return 'electro';
 }
 
-const C = {
-  margen: 64,
-  contenidoArriba: 530,
-  contenidoAbajo: 1920 - 170,
-
-  chipAlto: 76,
-  chipFuente: 36,
-  chipFuenteMin: 26,
-  chipPadX: 30,
-
-  listaFuente: 34,
-  interlinea: 48,
-  listaPad: 24,
-  sangria: 28,
-  listaRadio: 18,
-  huecoChipLista: 16,
-
-  // Filas: recorte a un lado y texto al otro, alternando.
-  imgAncho: 400,
-  // Holgado a propósito: es el pasillo por el que la punteada va del chip al recorte.
-  huecoFila: 56,
-  separacionFilas: 44,
-  imgMinFila: 300,
-  imgMaxFila: 500,
-  maxLineasFila: 6, // 5 nombres + "+N más", como en la pieza horizontal
-
-  // Destacado: cuando un premio va solo en su imagen, recorte grande arriba y
-  // lista debajo, a dos columnas si es larga.
-  imgMinHeroe: 360,
-  imgMaxHeroe: 820,
-  huecoHeroe: 44,
-  lineasUnaColumna: 8,
-  huecoColumnas: 28,
-  // A dos columnas la letra baja un poco para que no se corten los nombres largos.
-  listaFuenteColumnas: 31,
-  minLista: 27,
-
-  // El personaje solo sale si al contenido le sobra al menos este alto.
-  personajeMinHueco: 420,
-  personajeMaxAlto: 640,
-
-  // La punteada del collage, llevada a esta escala.
-  punteada: { factor: 0.45, trazo: 3.5, guiones: [9, 13], limites: { w: 1080, h: 1920 } },
-};
-
 const ANCHO = CARRUSEL.ancho;
 const ALTO = CARRUSEL.alto;
-const AREA = C.contenidoAbajo - C.contenidoArriba;
-const ANCHO_UTIL = ANCHO - C.margen * 2;
-const TEXTO_FILA = ANCHO_UTIL - C.imgAncho - C.huecoFila;
 
-const fuente = (peso, tam) => `${peso} ${tam}px ${ESTILO.fuenteTitulo}`;
-const fuenteGanadores = (peso, tam) => `${peso} ${tam}px ${ESTILO.fuenteGanadores}`;
-const limitar = (v, min, max) => Math.min(Math.max(v, min), max);
+/* ---------- constantes del diseño ---------- */
 
-/* ---------- reparto en diapositivas ---------- */
+const D = {
+  // Cabecera. La fila mide 942 y va centrada: los márgenes salen a 69.
+  cabecera: { y: 61, ancho: 942, alto: 55.362 },
+  kickerFuente: 24,
+  logo: { ancho: 138, alto: 55.362 },
+
+  // Chip verde: caja rotada del diseño; se pinta centrado en ella.
+  chip: {
+    x: 69, y: 170, w: 333.041, h: 78.639,
+    giro: -3.78, fuente: 33.597, padX: 21, padY: 10, radio: 25, interlinea: 1.11,
+  },
+
+  titulo: { x: 100, y: 225, w: 684, fuente: 100, min: 62, interlinea: 0.94 },
+
+  // Personaje: caja fija, espejado y recortado como en el diseño (las manos se
+  // cortan justo donde arranca la retícula).
+  personaje: { x: 611, y: 140, w: 422, h: 323, sobrealto: 1.2731, margen: 12 },
+
+  trofeo: { cx: 548.97, cy: 264.97, lado: 128.594, giro: 12.83 },
+
+  // Variante de siete premios: sin personaje ni trofeo, cabecera centrada.
+  centrada: { y: 134, ancho: 932, solape: 16 },
+
+  // Tamaño del nombre del premio en una tarjeta grande de 500 x 497. Con pocos
+  // premios las tarjetas son más grandes y el nombre —con su «xN» y su total—
+  // crece en proporción: ver `escalaNombres`. Nunca baja de esto, y todas las
+  // tarjetas de una misma pieza usan la misma escala.
+  nombreFuente: 32,
+  nombreReferencia: { w: 500, h: 497 },
+
+  tarjeta: {
+    radio: 40,
+    borde: 0.923,
+    // Franja de luz: blanco de arriba a abajo. El diseño declara los topes en 0 y
+    // 0,2, pero con los stops en 8,5 % y 105,94 % —los dos fuera de la caja— lo
+    // que de verdad se ve va de 0,035 abajo a 0,185 arriba. Medido muestreando el
+    // render de Figma contra el fondo por el hueco entre tarjetas: 0,174 a 0,046
+    // de arriba abajo, que es lo que dan estos dos valores.
+    luz: [0.035, 0.185],
+    sombra: { color: 'rgba(0, 0, 0, 0.38)', desenfoque: 11, bajada: 9 },
+  },
+
+  // Contador de cuántos se entregaron, al lado del nombre: pill verde con la
+  // tinta de marca, como el chip de la cabecera.
+  contador: { fuente: 23, padX: 12, padY: 6, hueco: 10, interlinea: 1.11 },
+
+  // Cuánto se repartió, debajo del nombre. Solo lo traen los premios que se
+  // entregan por monto: en los demás el valor no cambia de una entrega a otra.
+  total: { fuente: 24, min: 18, hueco: 8, interlinea: 1.4 },
+
+  ganadores: {
+    radio: 22,
+    borde: 0.284,
+    padX: 26.487,
+    padY: 30.302,
+    hueco: 11.363,
+    huecoColumna: 11,
+    tituloFuente: 32,
+    fuente: 24,
+    min: 18,
+    // Con pocos ganadores la letra crece hasta aquí para llenar la caja: a 24 px
+    // tres nombres sueltos se perdían en un recuadro medio vacío. El titular
+    // «Ganadores» crece con ellos para seguir mandando en la jerarquía.
+    max: 48,
+    // Letra mínima con la que una caja acepta las columnas que `preferir` pide.
+    // Si a dos columnas los nombres tendrían que quedar más chicos, se usa una.
+    legible: 22,
+    interlinea: 1.4,
+    texto: 'Ganadores',
+    // Hasta dónde puede crecer la caja. Su `x`, `w` e `y` son los del diseño —eso
+    // es lo que la alinea con la retícula—, pero el alto se estira hasta este pie
+    // cuando la caja no tiene nada al lado; así caben más nombres o se leen más
+    // grandes.
+    // 1736 es donde la apoya la plantilla de seis, la que más baja.
+    pie: 1736,
+  },
+};
+
+const fuenteT = (peso, tam) => `${peso} ${tam}px ${ESTILO.fuenteTitulo}`;
+const fuenteG = (peso, tam) => `${peso} ${tam}px ${ESTILO.fuenteGanadores}`;
+
+/* ---------- las siete plantillas ---------- */
+
+// `producto: [padX, hueco, padAbajo]` es el aire que el recorte deja dentro de la
+// tarjeta: a los lados, entre el nombre y el recorte, y hasta el borde de abajo.
+// Sale de medir el diseño tarjeta por tarjeta.
+const tarjeta = (x, y, w, h, extra = {}) => ({ x, y, w, h, estilo: 'arriba', ...extra });
+
+// `nombre.ancho: 0` significa «todo el ancho útil de la tarjeta». El diseño fija
+// un ancho concreto (208 en las grandes) porque su texto de muestra —«Nombre de
+// Producto»— lo llena justo; con nombres de premio de verdad ese ancho trunca casi
+// todo aunque sobre media tarjeta, así que se usa el que hay. Cuando el nombre
+// cabe en una línea, el resultado es idéntico al diseño.
+//
+// El tamaño sale de `D.nombreFuente` y `escalaNombres`: ver los comentarios de ahí.
+const GRANDE = { nombre: { x: 44, y: 38, ancho: 0, lineas: 2 }, producto: [56, 26, 67] };
+const CHICA = { nombre: { x: 26, y: 24, ancho: 0, lineas: 3 }, producto: [20, 20, 36] };
+
+// Fila de tres tarjetas iguales que reparten un ancho con huecos, como el
+// contenedor flex de la variante de siete.
+const trio = (x, y, ancho, alto, hueco, extra) => {
+  const w = (ancho - hueco * 2) / 3;
+  return [0, 1, 2].map((i) => tarjeta(x + i * (w + hueco), y, w, alto, extra));
+};
+
+const PLANTILLAS = {
+  1: {
+    tarjetas: [tarjeta(105.5, 463, 869, 837, {
+      radio: 60,
+      borde: 1.103,
+      nombre: { x: 53.9, y: 38.9, ancho: 0, lineas: 2 },
+      producto: [100, 0, 59],
+    })],
+    ganadores: { x: 105.5, y: 1329, w: 869, h: 312, columnas: 3 },
+  },
+
+  2: {
+    tarjetas: [
+      tarjeta(35, 463, 500, 669, GRANDE),
+      tarjeta(544, 463, 500, 669, GRANDE),
+    ],
+    ganadores: { x: 105.5, y: 1329, w: 869, h: 312, columnas: 3 },
+  },
+
+  // Dos arriba y una ancha debajo, con el nombre a la izquierda y el recorte a la
+  // derecha: el único caso de tarjeta apaisada del diseño.
+  3: {
+    tarjetas: [
+      tarjeta(35, 463, 500, 544, GRANDE),
+      tarjeta(544, 463, 500, 544, GRANDE),
+      tarjeta(34.5, 1016, 1011, 389, {
+        estilo: 'lado',
+        nombre: { x: 65, y: 0, ancho: 405, lineas: 3 },
+        producto: [490, 0, 40],
+      }),
+    ],
+    ganadores: { x: 34.5, y: 1424, w: 1011, h: 279, columnas: 3 },
+  },
+
+  4: {
+    tarjetas: [
+      tarjeta(35, 463, 500, 497, GRANDE),
+      tarjeta(544, 463, 500, 497, GRANDE),
+      tarjeta(35, 970, 500, 497, GRANDE),
+      tarjeta(544, 970, 500, 497, GRANDE),
+    ],
+    ganadores: { x: 105.5, y: 1495, w: 869, h: 267, columnas: 3 },
+  },
+
+  // Dos grandes arriba y tres chicas debajo.
+  5: {
+    tarjetas: [
+      tarjeta(35, 463, 500, 497, GRANDE),
+      tarjeta(544, 463, 500, 497, GRANDE),
+      tarjeta(46, 970, 322, 439, CHICA),
+      tarjeta(381, 970, 322, 439, CHICA),
+      tarjeta(716, 970, 316, 439, CHICA),
+    ],
+    ganadores: { x: 105.5, y: 1481, w: 869, h: 265, columnas: 3 },
+  },
+
+  6: {
+    tarjetas: [
+      tarjeta(46, 463, 322, 439, CHICA),
+      tarjeta(381, 463, 322, 439, CHICA),
+      tarjeta(716, 463, 316, 439, CHICA),
+      tarjeta(46, 914, 322, 439, CHICA),
+      tarjeta(381, 914, 322, 439, CHICA),
+      tarjeta(716, 914, 316, 439, CHICA),
+    ],
+    ganadores: { x: 105.5, y: 1424, w: 869, h: 312, columnas: 3 },
+  },
+
+  // Siete: dos tríos arriba y, abajo, el primer premio en grande con los
+  // ganadores al lado en una sola columna. Esta variante no lleva personaje ni
+  // trofeo y su cabecera va centrada.
+  7: {
+    cabecera: 'centrada',
+    tarjetas: [
+      tarjeta(39, 1113, 500, 497, {
+        nombre: { x: 44, y: 38, ancho: 0, lineas: 2 },
+        producto: [56, 26, 67],
+      }),
+      ...trio(39, 369, 1003, 372, 12, CHICA),
+      ...trio(39, 751, 1003, 338, 12, CHICA),
+    ],
+    // Caja angosta: los nombres van cortos (nombre y primer apellido) para que
+    // quepan a dos columnas sin bajar a una letra ilegible.
+    ganadores: {
+      x: 551, y: 1126, w: 491, h: 484, columnas: 2, lado: true, preferir: 2, nombreCorto: true,
+    },
+  },
+};
+
+const plantillaDe = (cuantos) => PLANTILLAS[Math.min(Math.max(cuantos, 1), MAX_PREMIOS)];
+
+// El hueco MÁXIMO para la caja de ganadores. `x`, `w` e `y` son los del diseño
+// —lo que la mantiene alineada con la retícula—, y el alto llega hasta el pie
+// común. La caja que se pinta mide lo que pida su contenido, hasta este tope.
+//
+// Las que van `lado` a lado de una tarjeta no se estiran ni se encogen: miden lo
+// mismo que su vecina, que si no la pareja queda desigual. Ahí solo se ajusta la
+// letra dentro del alto del diseño.
+function cajaGanadores(plantilla) {
+  const caja = plantilla.ganadores;
+  if (caja.lado) return caja;
+  return { ...caja, h: Math.max(caja.h, D.ganadores.pie - caja.y) };
+}
+
+// Cuántos ganadores entran en la caja de una página con esa cantidad de premios.
+// La interfaz lo usa para avisar de que va a salir un «+N más»; el dibujo lo
+// recalcula por su cuenta con el tamaño de letra que acabe usando.
+export function capacidadGanadores(cuantosPremios) {
+  const caja = cajaGanadores(plantillaDe(cuantosPremios));
+  return filasYColumnas(caja).celdas;
+}
+
+// Filas que caben en la caja a la letra mínima —la que usa el dibujo antes de
+// resumir con «+N más»—, y celdas totales.
+function filasYColumnas(caja) {
+  const g = D.ganadores;
+  const interlinea = g.min * g.interlinea;
+  const alto = caja.h - g.padY * 2 - tituloPara(g.min) * g.interlinea - g.hueco;
+  const filas = Math.max(1, Math.floor(alto / interlinea));
+  return { filas, interlinea, celdas: filas * caja.columnas };
+}
+
+/* ---------- reparto en páginas ---------- */
 
 /**
- * @param {Array<{id:string, titulo:string, grupos:Array}>} categorias grupos ya
- *   armados (chip, nombres/montos, imagen, conteo) y ordenados.
- * @returns {Array<{categoria:object, grupos:Array}>}
+ * Reparte los premios en páginas de como mucho `MAX_PREMIOS`, parejo: con nueve
+ * premios salen 5 + 4 (dos plantillas del diseño) en vez de 7 + 2.
+ *
+ * @param {Array<{nombre:string, imagen:?HTMLImageElement, nombres:string[], montos:Array}>} grupos
+ *   ya armados y ordenados, el más valioso primero.
+ * @returns {Array<{grupos:Array, ganadores:string[], parte:number, partes:number}>}
  */
-export function armarCarrusel(categorias) {
-  const diapositivas = [];
-  for (const cat of categorias) {
-    if (!cat.grupos.length) continue;
-    const alturas = cat.grupos.map((g) => Math.max(
-      altoTexto(Math.min(totalLineas(g), C.maxLineasFila)),
-      C.imgMinFila,
-    ));
-    const paginas = paginar(alturas);
-    const entregas = cat.grupos.reduce((s, g) => s + (g.conteo || 0), 0);
-    paginas.forEach((indices, i) => diapositivas.push({
-      categoria: { id: cat.id, titulo: cat.titulo, entregas, parte: i + 1, partes: paginas.length },
-      grupos: indices.map((k) => cat.grupos[k]),
-    }));
-  }
-  return diapositivas;
-}
+export function armarCarrusel(grupos) {
+  const lista = (grupos || []).filter(Boolean);
+  if (!lista.length) return [];
 
-// Llena cada diapositiva hasta donde quepa y luego reparte parejo: con cinco
-// premios mejor 3 + 2 que 4 + 1.
-function paginar(alturas) {
-  const cabe = (indices) => indices.reduce((s, k) => s + alturas[k], 0)
-    + C.separacionFilas * (indices.length - 1) <= AREA;
-
+  const partes = Math.ceil(lista.length / MAX_PREMIOS);
+  const tam = Math.ceil(lista.length / partes);
   const paginas = [];
-  let actual = [];
-  alturas.forEach((_, i) => {
-    if (actual.length && !cabe([...actual, i])) {
-      paginas.push(actual);
-      actual = [];
-    }
-    actual.push(i);
-  });
-  if (actual.length) paginas.push(actual);
+  for (let i = 0; i < lista.length; i += tam) paginas.push(lista.slice(i, i + tam));
 
-  if (paginas.length > 1) {
-    const tam = Math.ceil(alturas.length / paginas.length);
-    const parejas = [];
-    for (let i = 0; i < alturas.length; i += tam) {
-      parejas.push(alturas.slice(i, i + tam).map((_, k) => i + k));
-    }
-    if (parejas.length === paginas.length && parejas.every(cabe)) return parejas;
+  return paginas.map((pagina, i) => ({
+    grupos: pagina,
+    ganadores: ganadoresDe(pagina),
+    parte: i + 1,
+    partes: paginas.length,
+  }));
+}
+
+// Todos los ganadores de esos premios, sin repetir y en el orden en que aparecen.
+// El diseño ya no los ata a un premio concreto, así que quien ganó dos cosas sale
+// una sola vez.
+function ganadoresDe(grupos) {
+  const vistos = new Set();
+  for (const g of grupos) {
+    const nombres = g.montos && g.montos.length
+      ? g.montos.flatMap((m) => m.nombres)
+      : (g.nombres || []);
+    for (const n of nombres) if (n) vistos.add(n);
   }
-  return paginas;
-}
-
-/* ---------- listas de ganadores ---------- */
-
-function seccionesDe(g) {
-  return g.montos && g.montos.length
-    ? g.montos.map((m) => ({ titulo: m.etiqueta || null, nombres: m.nombres }))
-    : [{ titulo: null, nombres: g.nombres || [] }];
-}
-
-function totalLineas(g) {
-  return seccionesDe(g).reduce((s, x) => s + x.nombres.length + (x.titulo ? 1 : 0), 0);
-}
-
-// Líneas a pintar, con un tope. En los premios por monto cada importe va como
-// subtítulo y debajo sus ganadores; lo que no cabe se resume en "+N más".
-function lineasDe(g, max) {
-  const secciones = seccionesDe(g);
-  const totalNombres = secciones.reduce((s, x) => s + x.nombres.length, 0);
-  const todas = secciones.flatMap((s) => [
-    ...(s.titulo ? [{ tipo: 'monto', texto: s.titulo }] : []),
-    ...s.nombres.map((n) => ({ tipo: 'nombre', texto: n })),
-  ]);
-  if (todas.length <= max) return todas;
-
-  const salida = [];
-  let presupuesto = max - 1;
-  let vistos = 0;
-  for (const s of secciones) {
-    if (s.titulo) {
-      if (presupuesto < 2) break; // un importe sin ningún nombre debajo no sirve
-      salida.push({ tipo: 'monto', texto: s.titulo });
-      presupuesto -= 1;
-    }
-    for (const n of s.nombres) {
-      if (presupuesto < 1) break;
-      salida.push({ tipo: 'nombre', texto: n });
-      presupuesto -= 1;
-      vistos += 1;
-    }
-    if (presupuesto < 1) break;
-  }
-  salida.push({ tipo: 'mas', texto: `+${totalNombres - vistos} más` });
-  return salida;
-}
-
-function altoTexto(lineas) {
-  if (!lineas) return C.chipAlto;
-  return C.chipAlto + C.huecoChipLista + C.listaPad * 2 + lineas * C.interlinea;
+  return [...vistos];
 }
 
 /* ---------- dibujo ---------- */
 
 /**
- * Pinta una diapositiva del carrusel en `canvas`.
+ * Pinta una página de la pieza en `canvas`.
  * @param {HTMLCanvasElement} canvas
  */
 export function dibujarDiapositiva(canvas, {
-  kicker, titulo, etiqueta, logo, diapositiva, indice, total, personaje,
+  kicker, titulo, etiqueta, logo, diapositiva, personaje, fondo, trofeo,
 }) {
   const { escala } = CARRUSEL;
   canvas.width = ANCHO * escala;
@@ -204,390 +324,749 @@ export function dibujarDiapositiva(canvas, {
   ctx.imageSmoothingQuality = 'high';
   ctx.clearRect(0, 0, ANCHO, ALTO);
 
-  cabecera(ctx, { kicker, titulo, etiqueta, logo });
-  rotulo(ctx, diapositiva.categoria);
+  const plantilla = plantillaDe(diapositiva.grupos.length);
 
-  const hayPersonaje = Boolean(personaje && personaje.complete && personaje.naturalWidth);
-  const { grupos } = diapositiva;
-  const libre = grupos.length === 1
-    ? heroe(ctx, grupos[0], hayPersonaje)
-    : filas(ctx, grupos, hayPersonaje);
+  // Orden natural: el fondo es la capa de abajo del diseño, no un relleno.
+  pintarFondo(ctx, fondo);
 
-  pie(ctx, indice, total);
+  if (plantilla.cabecera === 'centrada') {
+    cabeceraCentrada(ctx, { kicker, titulo, etiqueta, logo });
+  } else {
+    cabecera(ctx, { kicker, titulo, etiqueta, logo, personaje, trofeo, tarjetas: plantilla.tarjetas });
+  }
 
-  // Personaje y fondo por debajo de lo ya pintado, como en la pieza horizontal.
-  ctx.globalCompositeOperation = 'destination-over';
-  if (hayPersonaje && libre) dibujarPersonaje(ctx, personaje, libre);
-  fondo(ctx);
+  const escalaNombre = escalaNombres(plantilla);
+  plantilla.tarjetas.forEach((caja, i) => {
+    const grupo = diapositiva.grupos[i];
+    if (grupo) dibujarTarjeta(ctx, caja, grupo, escalaNombre);
+  });
+
+  // Los dedos de una pose que agarra van POR ENCIMA de las tarjetas.
+  if (plantilla.cabecera !== 'centrada') dibujarDedos(ctx, personaje, plantilla.tarjetas);
+
+  dibujarGanadores(ctx, cajaGanadores(plantilla), diapositiva.ganadores || []);
 
   ctx.restore();
   return canvas;
 }
 
-function fondo(ctx) {
-  const g = ctx.createLinearGradient(0, 0, ANCHO, ALTO);
-  g.addColorStop(0, ESTILO.fondoDe);
-  g.addColorStop(1, ESTILO.fondoA);
-  // El halo va primero porque con `destination-over` lo último queda más abajo.
-  const halo = ctx.createRadialGradient(ANCHO / 2, ALTO * 0.56, 80, ANCHO / 2, ALTO * 0.56, ANCHO * 0.75);
-  halo.addColorStop(0, 'rgba(201, 247, 63, 0.06)');
-  halo.addColorStop(1, 'rgba(201, 247, 63, 0)');
-  ctx.fillStyle = halo;
+// Foto del escenario a sangre, el degradado negro que sube desde el pie y un velo
+// plano encima. Sin foto queda el degradado de marca, para que la pieza no salga
+// en negro si el asset no cargó.
+function pintarFondo(ctx, fondo) {
+  if (fondo && fondo.complete && fondo.naturalWidth) {
+    const escala = Math.max(ANCHO / fondo.naturalWidth, ALTO / fondo.naturalHeight);
+    const w = fondo.naturalWidth * escala;
+    const h = fondo.naturalHeight * escala;
+    ctx.drawImage(fondo, (ANCHO - w) / 2, (ALTO - h) / 2, w, h);
+  } else {
+    const base = ctx.createLinearGradient(0, 0, ANCHO, ALTO);
+    base.addColorStop(0, ESTILO.fondoDe);
+    base.addColorStop(1, ESTILO.fondoA);
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, ANCHO, ALTO);
+  }
+
+  // De abajo hacia arriba: negro opaco al pie, nada a partir del 46,6 % del alto.
+  const pie = ctx.createLinearGradient(0, ALTO, 0, ALTO * (1 - 0.46624));
+  pie.addColorStop(0, 'rgb(10, 11, 12)');
+  pie.addColorStop(1, 'rgba(23, 26, 30, 0)');
+  ctx.fillStyle = pie;
   ctx.fillRect(0, 0, ANCHO, ALTO);
-  ctx.fillStyle = g;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
   ctx.fillRect(0, 0, ANCHO, ALTO);
 }
 
-function cabecera(ctx, { kicker, titulo, etiqueta, logo }) {
-  const logoCaja = [ANCHO - C.margen - 240, 76, 240, 86];
+/* ---------- cabecera ---------- */
+
+// Fila de arriba: el nombre del cliente a la izquierda y el logo a la derecha.
+function filaCliente(ctx, kicker, logo) {
+  const x = (ANCHO - D.cabecera.ancho) / 2;
+  const cy = D.cabecera.y + D.cabecera.alto / 2;
+  const cajaLogo = [x + D.cabecera.ancho - D.logo.ancho, D.cabecera.y, D.logo.ancho, D.logo.alto];
 
   if (kicker) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-    ctx.font = fuente(600, 30);
-    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = ESTILO.neutral07;
+    ctx.font = fuenteG(500, D.kickerFuente);
+    ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
-    ctx.fillText(recortar(ctx, kicker.toUpperCase(), ANCHO_UTIL - logoCaja[2] - 40), C.margen, 128);
+    ctx.fillText(recortar(ctx, kicker.toUpperCase(), D.cabecera.ancho - D.logo.ancho - 40), x, cy);
   }
 
   if (logo && logo.complete && logo.naturalWidth) {
-    contener(ctx, logo, ...logoCaja, 'derecha');
-  } else {
-    ctx.fillStyle = ESTILO.blanco;
-    ctx.font = fuente(700, 52);
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText('galilei', logoCaja[0] + logoCaja[2], 140);
+    contener(ctx, logo, ...cajaLogo, 'derecha', 'centro');
+    return;
+  }
+  ctx.fillStyle = ESTILO.blanco;
+  ctx.font = fuenteT(700, 40);
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('galilei', cajaLogo[0] + cajaLogo[2], cy);
+  ctx.textAlign = 'left';
+}
+
+// Cabecera de las variantes de uno a seis premios: chip y título a la izquierda,
+// con el personaje y el trofeo a la derecha.
+//
+// El orden importa y es el del diseño: chip, personaje, título, fila del cliente y
+// trofeo encima de todo. Que el título tape al personaje y no al revés es lo que
+// lo mantiene legible cuando toca una pose ancha, que llega a solaparlo.
+function cabecera(ctx, { kicker, titulo, etiqueta, logo, personaje, trofeo, tarjetas }) {
+  if (etiqueta) dibujarChip(ctx, etiqueta, D.chip.x + D.chip.w / 2, D.chip.y + D.chip.h / 2);
+
+  dibujarPersonaje(ctx, personaje, tarjetas);
+
+  const { tam, lineas } = tituloQueCabe(ctx, titulo, D.titulo.w);
+  ctx.fillStyle = ESTILO.blanco;
+  ctx.font = fuenteT(700, tam);
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  const alto = tam * D.titulo.interlinea;
+  lineas.forEach((linea, i) => ctx.fillText(linea, D.titulo.x, D.titulo.y + alto * (i + 0.5)));
+
+  filaCliente(ctx, kicker, logo);
+  dibujarTrofeo(ctx, trofeo);
+}
+
+// Variante de siete premios: chip centrado montado sobre un título de una línea,
+// ambos centrados en la pieza.
+function cabeceraCentrada(ctx, { kicker, titulo, etiqueta, logo }) {
+  filaCliente(ctx, kicker, logo);
+
+  const { ancho, solape } = D.centrada;
+  let y = D.centrada.y;
+
+  if (etiqueta) {
+    const chipAlto = D.chip.fuente * D.chip.interlinea + D.chip.padY * 2;
+    dibujarChip(ctx, etiqueta, ANCHO / 2, y + chipAlto / 2);
+    y += chipAlto - solape;
+  }
+
+  // De una línea: el diseño lo pone todo seguido, así que el tamaño cede antes
+  // que partirse en dos.
+  let tam = D.titulo.fuente;
+  ctx.font = fuenteT(700, tam);
+  while (tam > D.titulo.min && ctx.measureText(titulo).width > ancho) {
+    tam -= 2;
+    ctx.font = fuenteT(700, tam);
+  }
+  ctx.fillStyle = ESTILO.blanco;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText(recortar(ctx, titulo, ancho), ANCHO / 2, y + (tam * D.titulo.interlinea) / 2);
+  ctx.textAlign = 'left';
+}
+
+function dibujarChip(ctx, texto, cx, cy) {
+  const { fuente, padX, padY, radio, giro, interlinea } = D.chip;
+  ctx.save();
+  ctx.font = fuenteT(700, fuente);
+  const w = ctx.measureText(texto).width + padX * 2;
+  const h = fuente * interlinea + padY * 2;
+  ctx.translate(cx, cy);
+  ctx.rotate((giro * Math.PI) / 180);
+  ctx.fillStyle = ESTILO.g500;
+  redondeado(ctx, -w / 2, -h / 2, w, h, radio);
+  ctx.fill();
+  ctx.fillStyle = ESTILO.tintaChip;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText(texto, 0, 1);
+  ctx.restore();
+}
+
+// El título del diseño ocupa dos líneas. Se parte por palabras y, si con dos no
+// basta, baja de tamaño antes que recortarse.
+function tituloQueCabe(ctx, texto, ancho) {
+  let tam = D.titulo.fuente;
+  while (tam > D.titulo.min) {
+    ctx.font = fuenteT(700, tam);
+    const lineas = envolver(ctx, texto, ancho, 2);
+    if (lineas.every((l) => ctx.measureText(l).width <= ancho)) return { tam, lineas };
+    tam -= 2;
+  }
+  ctx.font = fuenteT(700, tam);
+  return { tam, lineas: envolver(ctx, texto, ancho, 2) };
+}
+
+// Parte el texto en como mucho `maxLineas`; la última se recorta con puntos
+// suspensivos si aún sobra. `anchoUltima` es lo que puede medir la última línea
+// cuando algo va pegado detrás de ella (el contador «xN»): si no le cabe, su
+// última palabra baja a una línea nueva —o, sin líneas libres, se recorta—.
+function envolver(ctx, texto, ancho, maxLineas, anchoUltima = ancho) {
+  const palabras = String(texto || '').split(/\s+/).filter(Boolean);
+  if (!palabras.length) return [];
+
+  const lineas = [];
+  let actual = palabras[0];
+  for (const palabra of palabras.slice(1)) {
+    const prueba = `${actual} ${palabra}`;
+    // Cabe, o ya es la última línea permitida y no queda dónde partir.
+    if (ctx.measureText(prueba).width <= ancho || lineas.length + 1 >= maxLineas) {
+      actual = prueba;
+    } else {
+      lineas.push(actual);
+      actual = palabra;
+    }
+  }
+  lineas.push(actual);
+
+  const ultima = lineas.length - 1;
+  const cola = lineas[ultima].split(' ');
+  if (ctx.measureText(lineas[ultima]).width > anchoUltima
+    && lineas.length < maxLineas && cola.length > 1) {
+    lineas[ultima] = cola.slice(0, -1).join(' ');
+    lineas.push(cola[cola.length - 1]);
+  }
+  const fin = lineas.length - 1;
+  lineas[fin] = recortar(ctx, lineas[fin], anchoUltima);
+  return lineas;
+}
+
+/* ---------- personaje y trofeo ---------- */
+
+// Espejado y recortado como en el diseño: se dibuja más alto que su caja y lo
+// que sobra se corta donde arranca la retícula.
+//
+// Solo se corta donde una tarjeta le pasa por encima: ahí el corte se explica
+// solo. Donde hay aire —por arriba, a los lados, o debajo cuando la retícula es
+// más angosta que el personaje, como con un solo premio— se ve entero; un corte
+// en el vacío (medio zapato flotando) se lee como un error. Solo cede tamaño si
+// no cabría ni en el lienzo.
+//
+// Lo que tapa es el contorno de TODA la retícula, con las esquinas redondeadas de
+// las tarjetas, y no cada tarjeta por separado: si no, las piernas se colarían
+// por las rendijas de 9 px entre una y otra.
+function dibujarPersonaje(ctx, img, tarjetas = []) {
+  const g = geometriaPersonaje(img, tarjetas);
+  if (!g) return;
+
+  ctx.save();
+  if (g.agarre) {
+    // Todo lo que queda por encima del borde que agarra; los dedos se pintan
+    // después, sobre las tarjetas (`dibujarDedos`).
+    ctx.beginPath();
+    ctx.rect(0, 0, ANCHO, g.borde);
+    ctx.clip();
+  } else if (tarjetas.length) {
+    const { izq, arr, der, aba } = contorno(tarjetas);
+    const r = Math.min(tarjetas[0].radio ?? D.tarjeta.radio, (der - izq) / 2, (aba - arr) / 2);
+    // Todo el lienzo menos la retícula: con `evenodd` el segundo trazado resta.
+    ctx.beginPath();
+    ctx.rect(0, 0, ANCHO, ALTO);
+    ctx.moveTo(izq + r, arr);
+    ctx.arcTo(der, arr, der, aba, r);
+    ctx.arcTo(der, aba, izq, aba, r);
+    ctx.arcTo(izq, aba, izq, arr, r);
+    ctx.arcTo(izq, arr, der, arr, r);
+    ctx.closePath();
+    ctx.clip('evenodd');
+  }
+  pintarPersonaje(ctx, img, g);
+  ctx.restore();
+}
+
+// Segunda pasada de las poses que agarran: solo la franja de los dedos, por
+// debajo del borde, encima de las tarjetas ya pintadas.
+function dibujarDedos(ctx, img, tarjetas) {
+  const g = geometriaPersonaje(img, tarjetas);
+  if (!g || !g.agarre) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, g.borde, ANCHO, ALTO - g.borde);
+  ctx.clip();
+  pintarPersonaje(ctx, img, g);
+  ctx.restore();
+}
+
+function pintarPersonaje(ctx, img, { px, ancho, alto }) {
+  ctx.translate(px + ancho / 2, 0);
+  ctx.scale(-1, 1);
+  contener(ctx, img, -ancho / 2, D.personaje.y, ancho, alto, 'centro', 'arriba');
+}
+
+const contorno = (tarjetas) => ({
+  izq: Math.min(...tarjetas.map((t) => t.x)),
+  arr: Math.min(...tarjetas.map((t) => t.y)),
+  der: Math.max(...tarjetas.map((t) => t.x + t.w)),
+  aba: Math.max(...tarjetas.map((t) => t.y + t.h)),
+});
+
+// Poses que se asoman AGARRANDO un borde (Gali-24). Medido en fracciones de la
+// imagen COMPLETA, sin espejar (el recorte útil se calcula por columnas y es
+// aproximado, así que se convierte al dibujar):
+// - `borde`: a qué altura (fracción) termina el verde del cuerpo bajo la cara,
+//   que es donde estaría el canto que agarran. Se hace coincidir con el borde de
+//   arriba de las tarjetas; si se mide más abajo (en los dedos) queda un hueco
+//   transparente entre el cuello y la tarjeta. Va un pelo por encima del último
+//   píxel verde (985 de 1400) para que no asome una rendija.
+// - `manos`: tramo horizontal de cada mano. Las dos tienen que caer sobre una
+//   tarjeta: una mano en el aire o sobre la rendija entre dos tarjetas se ve rara.
+const AGARRAN = [
+  { patron: /gali-24/i, borde: 0.702, manos: [[0.124, 0.282], [0.717, 0.876]] },
+];
+
+// Tamaño y posición del personaje en la cabecera.
+function geometriaPersonaje(img, tarjetas = []) {
+  if (!img || !img.complete || !img.naturalWidth) return null;
+  const { x, y, w, h, sobrealto, margen } = D.personaje;
+  const caja = img.caja || { x0: 0, y0: 0, x1: 1, y1: 1 };
+  const anchoUtil = (caja.x1 - caja.x0) * img.naturalWidth;
+  const altoUtil = (caja.y1 - caja.y0) * img.naturalHeight;
+  const pose = tarjetas.length ? AGARRAN.find((a) => a.patron.test(img.nombre || img.src || '')) : null;
+  // Pasado a fracciones del recorte útil, que es lo que ocupa `ancho` x `alto`.
+  const enX = (f) => (f - caja.x0) / (caja.x1 - caja.x0);
+  const agarre = pose && {
+    borde: (pose.borde - caja.y0) / (caja.y1 - caja.y0),
+    manos: pose.manos.map(([a, b]) => [enX(a), enX(b)]),
+  };
+
+  // Uno que agarra se escala para que su canto caiga justo en el borde de las
+  // tarjetas (con el techo en el de la caja); los demás, más altos que su caja.
+  const borde = tarjetas.length ? contorno(tarjetas).arr : y + h;
+  let alto = agarre ? (borde - y) / agarre.borde : h * sobrealto;
+  let ancho = alto * (anchoUtil / altoUtil);
+
+  // Lo único que no puede rebasar es el lienzo: ahí el corte se vería igual de
+  // gratuito. Un personaje más ancho que la pieza entera sí cede tamaño.
+  const tope = ANCHO - margen * 2;
+  if (ancho > tope) {
+    alto *= tope / ancho;
+    ancho = tope;
+  }
+
+  // Centrado en la caja del diseño y empujado adentro si se saldría del lienzo.
+  const dentro = (v) => Math.min(Math.max(v, margen), ANCHO - margen - ancho);
+  let px = dentro(x + (w - ancho) / 2);
+
+  if (agarre) {
+    // Espejado: una mano en [a, b] del recorte cae en [1 - b, 1 - a] del dibujo.
+    const manos = agarre.manos.map(([a, b]) => [1 - b, 1 - a]);
+    const apoyada = (base) => manos.every(([a, b]) => tarjetas.some((t) => (
+      base + a * ancho >= t.x + 4 && base + b * ancho <= t.x + t.w - 4
+    )));
+    // El desplazamiento más corto que deja las dos manos sobre tarjeta.
+    for (let d = 0; d <= 200; d += 2) {
+      const opcion = [px - d, px + d].map(dentro).find(apoyada);
+      if (opcion != null) { px = opcion; break; }
+    }
+  }
+
+  return { px, ancho, alto, agarre, borde };
+}
+
+function dibujarTrofeo(ctx, img) {
+  if (!img || !img.complete || !img.naturalWidth) return;
+  const { cx, cy, lado, giro } = D.trofeo;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((giro * Math.PI) / 180);
+  contener(ctx, img, -lado / 2, -lado / 2, lado, lado);
+  ctx.restore();
+}
+
+/* ---------- tarjetas de premio ---------- */
+
+// Cuánto crecen los nombres de premio en esta plantilla. Sale de la tarjeta MÁS
+// CHICA de la pieza comparada con la grande de referencia (raíz del cociente de
+// áreas, para que sea proporcional al tamaño y no solo al ancho): así con uno o
+// dos premios el nombre crece con su tarjeta, y en una pieza con tarjetas de
+// varios tamaños todas llevan la misma letra. Nunca achica.
+function escalaNombres(plantilla) {
+  const { w, h } = D.nombreReferencia;
+  const menor = Math.min(...plantilla.tarjetas.map((t) => t.w * t.h));
+  return Math.max(1, Math.sqrt(menor / (w * h)));
+}
+
+function dibujarTarjeta(ctx, caja, grupo, escala = 1) {
+  const { x, y, w, h } = caja;
+  const radio = caja.radio ?? D.tarjeta.radio;
+  const [bajo, alta] = D.tarjeta.luz;
+
+  // Cristal: franja de luz de abajo hacia arriba y un filo blanco.
+  const luz = ctx.createLinearGradient(x, y + h, x, y);
+  luz.addColorStop(0, `rgba(255, 255, 255, ${bajo})`);
+  luz.addColorStop(1, `rgba(255, 255, 255, ${alta})`);
+  redondeado(ctx, x, y, w, h, radio);
+  ctx.fillStyle = luz;
+  ctx.fill();
+  ctx.strokeStyle = ESTILO.blanco;
+  ctx.lineWidth = caja.borde ?? D.tarjeta.borde;
+  ctx.stroke();
+
+  const [padX, hueco, padAbajo] = caja.producto;
+  const n = caja.nombre;
+
+  // Apaisada: el nombre a la izquierda, centrado en vertical, y el recorte
+  // ocupando la mitad derecha. Puede asomar por arriba, como en el diseño.
+  if (caja.estilo === 'lado') {
+    const bloque = nombreDelPremio(ctx, grupo, n.ancho, n.lineas, n.x * HOLGURA_CONTADOR, escala);
+    pintarNombre(ctx, bloque, x + n.x, y + h / 2 - bloque.alto / 2);
+    producto(ctx, grupo, [x + padX, y, w - padX - padAbajo, h]);
+    return;
+  }
+
+  const bloque = nombreDelPremio(ctx, grupo, n.ancho || w - n.x * 2, n.lineas, n.x * HOLGURA_CONTADOR, escala);
+  pintarNombre(ctx, bloque, x + n.x, y + n.y);
+
+  const arriba = y + n.y + bloque.alto + hueco;
+  producto(ctx, grupo, [x + padX, arriba, w - padX * 2, y + h - padAbajo - arriba]);
+}
+
+// Cuánto del margen derecho de la tarjeta puede invadir lo que va pegado al final
+// del nombre («xN» y el total) para no quedarse en un renglón solo: 0,6 del
+// margen, así nunca llega a tocar el borde.
+const HOLGURA_CONTADOR = 0.6;
+
+// Lo más que se achica el nombre del premio para no robarle renglones al recorte,
+// en la escala de referencia (crece con `escala` como todo lo demás).
+const NOMBRE_MIN = 26;
+
+/**
+ * Maqueta el nombre del premio con lo que va detrás: el contador «xN» si se
+ * entregó más de uno y el total repartido en los premios por monto.
+ *
+ * Todo cabe en `maxLineas` renglones como mucho: cada renglón de más es alto que
+ * se le quita al recorte, y con un nombre largo más un total en línea aparte la
+ * imagen quedaba diminuta. Por orden de preferencia:
+ * 1. Contador y total pegados al final de la última línea, con el nombre a su
+ *    tamaño o achicándolo hasta `NOMBRE_MIN` si así no hay que recortarlo. Lo que
+ *    va pegado puede salirse `holgura` del ancho del texto.
+ * 2. El total en su propio renglón, si el nombre cabe en uno menos.
+ * 3. Todo en línea a la letra mínima, recortando el nombre con «…».
+ * El contador nunca queda solo: si no le cabe, baja con la última palabra.
+ */
+function nombreDelPremio(ctx, grupo, ancho, maxLineas, holgura = 0, escala = 1) {
+  // Contador y total crecen con el nombre: todo el bloque es proporcional.
+  const c = {
+    ...D.contador,
+    fuente: D.contador.fuente * escala,
+    padX: D.contador.padX * escala,
+    padY: D.contador.padY * escala,
+    hueco: D.contador.hueco * escala,
+  };
+  const t = { ...D.total, fuente: D.total.fuente * escala, hueco: D.total.hueco * escala };
+  const nombre = String(grupo.nombre || '').trim().split(/\s+/).join(' ');
+
+  let pill = null;
+  const veces = grupo.conteo > 1 ? `x${grupo.conteo}` : '';
+  if (veces) {
+    ctx.font = fuenteT(700, c.fuente);
+    pill = {
+      texto: veces,
+      w: ctx.measureText(veces).width + c.padX * 2,
+      h: c.fuente * c.interlinea + c.padY * 2,
+    };
+  }
+
+  let total = null;
+  if (grupo.total) {
+    ctx.font = fuenteG(500, t.fuente);
+    total = { texto: grupo.total, tam: t.fuente, w: ctx.measureText(grupo.total).width };
+  }
+
+  const anchoPill = pill ? c.hueco + pill.w : 0;
+  const armar = (tam, lineasMax, totalEnLinea) => {
+    const cola = anchoPill + (total && totalEnLinea ? c.hueco + total.w : 0);
+    ctx.font = fuenteT(700, tam);
+    const lineas = envolver(ctx, nombre, ancho, lineasMax, cola ? ancho + holgura - cola : ancho);
+    const tras = ctx.measureText(lineas[lineas.length - 1] || '').width;
+    const alto = tam * D.chip.interlinea * lineas.length
+      + (total && !totalEnLinea ? t.hueco + total.tam * t.interlinea : 0);
+    return {
+      tam,
+      lineas,
+      alto,
+      contadorFuente: c.fuente,
+      hueco: c.hueco,
+      huecoTotal: t.hueco,
+      completo: lineas.join(' ') === nombre,
+      contador: pill ? { ...pill, tras } : null,
+      total: total ? { ...total, enLinea: totalEnLinea, tras: tras + anchoPill } : null,
+    };
+  };
+
+  const mayor = Math.round(D.nombreFuente * escala);
+  const menor = Math.round(NOMBRE_MIN * escala);
+  for (let tam = mayor; tam >= menor; tam -= 1) {
+    const b = armar(tam, maxLineas, true);
+    if (b.completo) return b;
+  }
+  if (total && maxLineas > 1) {
+    for (let tam = mayor; tam >= menor; tam -= 1) {
+      const b = armar(tam, maxLineas - 1, false);
+      if (b.completo) return b;
+    }
+  }
+  return armar(menor, maxLineas, true);
+}
+
+function pintarNombre(ctx, bloque, x, y) {
+  const { tam, lineas, contador, total, hueco, huecoTotal, contadorFuente } = bloque;
+  const alto = tam * D.chip.interlinea;
+
+  ctx.font = fuenteT(700, tam);
+  ctx.fillStyle = ESTILO.blanco;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  lineas.forEach((linea, i) => ctx.fillText(linea, x, y + alto * (i + 0.5)));
+
+  const abajo = y + alto * lineas.length;
+  const medioUltima = abajo - alto / 2;
+
+  if (contador) {
+    const px = x + contador.tras + hueco;
+    const py = medioUltima - contador.h / 2;
+    ctx.fillStyle = ESTILO.g500;
+    redondeado(ctx, px, py, contador.w, contador.h, contador.h / 2);
+    ctx.fill();
+    ctx.fillStyle = ESTILO.tintaChip;
+    ctx.font = fuenteT(700, contadorFuente);
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText(contador.texto, px + contador.w / 2, py + contador.h / 2 + 1);
     ctx.textAlign = 'left';
   }
 
-  const ty = 180;
-  const tam = ajustar(ctx, titulo, ANCHO_UTIL, 104, 60, (t) => fuente(ESTILO.pesoTitulo, t));
-  ctx.fillStyle = ESTILO.blanco;
-  ctx.font = fuente(ESTILO.pesoTitulo, tam);
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'left';
-  ctx.fillText(titulo, C.margen, ty);
-  const anchoTitulo = ctx.measureText(titulo).width;
-
-  if (etiqueta) {
-    ctx.save();
-    const chipTam = Math.round(tam * 0.3);
-    ctx.font = fuente(700, chipTam);
-    const w = ctx.measureText(etiqueta).width + 56;
-    const h = chipTam * 1.85;
-    const x = Math.min(C.margen + anchoTitulo - w * 0.35, ANCHO - C.margen - w);
-    const y = ty + tam * 0.98;
-    ctx.translate(x + w / 2, y + h / 2);
-    ctx.rotate((-2.2 * Math.PI) / 180);
-    ctx.fillStyle = ESTILO.lima;
-    redondeado(ctx, -w / 2, -h / 2, w, h, h / 2);
-    ctx.fill();
-    ctx.fillStyle = ESTILO.tinta;
+  if (total) {
+    ctx.font = fuenteG(500, total.tam);
+    ctx.fillStyle = ESTILO.g500;
     ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText(etiqueta, 0, 2);
-    ctx.restore();
-  }
-}
-
-// Nombre de la categoría con una barra verde al lado y, debajo, cuántas entregas.
-function rotulo(ctx, cat) {
-  const y = 385;
-  const x = C.margen + 30;
-  const tam = ajustar(ctx, cat.titulo, ANCHO_UTIL - 30, 62, 38, (t) => fuente(700, t));
-
-  ctx.fillStyle = ESTILO.lima;
-  redondeado(ctx, C.margen, y + tam * 0.08, 10, tam * 0.86, 5);
-  ctx.fill();
-
-  ctx.fillStyle = ESTILO.blanco;
-  ctx.font = fuente(700, tam);
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'left';
-  ctx.fillText(cat.titulo, x, y);
-
-  const partes = cat.partes > 1 ? ` · ${cat.parte} de ${cat.partes}` : '';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-  ctx.font = fuenteGanadores(400, 28);
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText(`${cat.entregas} ${cat.entregas === 1 ? 'entrega' : 'entregas'}${partes}`, x, y + tam + 44);
-}
-
-// Un premio solo: recorte grande centrado y la lista debajo. Devuelve el hueco
-// libre para el personaje, o null si no sobra sitio.
-function heroe(ctx, g, hayPersonaje) {
-  const cols = totalLineas(g) <= C.lineasUnaColumna ? 1 : 2;
-  const fijo = C.chipAlto + C.huecoChipLista + C.listaPad * 2;
-  const porCol = Math.max(1, Math.floor((AREA - C.imgMinHeroe - C.huecoHeroe - fijo) / C.interlinea));
-  const lineas = lineasDe(g, porCol * cols);
-
-  let filasCol = cols === 1 ? lineas.length : Math.ceil(lineas.length / 2);
-  // Un importe no puede quedarse al pie de la primera columna sin sus nombres.
-  if (cols === 2 && lineas[filasCol - 1]?.tipo === 'monto' && lineas.length - (filasCol - 1) <= porCol) {
-    filasCol -= 1;
-  }
-  const columnas = cols === 1 ? [lineas] : [lineas.slice(0, filasCol), lineas.slice(filasCol)];
-  const altoLista = lineas.length
-    ? C.listaPad * 2 + Math.max(...columnas.map((c) => c.length)) * C.interlinea
-    : 0;
-  const altoBloque = C.chipAlto + (lineas.length ? C.huecoChipLista + altoLista : 0);
-
-  const caja = limitar(AREA - C.huecoHeroe - altoBloque, C.imgMinHeroe, C.imgMaxHeroe);
-  const imgH = altoProducto(g.imagen, ANCHO_UTIL, caja);
-  const totalH = imgH + C.huecoHeroe + altoBloque;
-  const sobra = AREA - totalH;
-  const conPersonaje = hayPersonaje && sobra >= C.personajeMinHueco;
-  const y0 = C.contenidoArriba + (conPersonaje ? 0 : Math.max(0, sobra / 2));
-
-  const puesta = imagen(ctx, g, [C.margen, y0, ANCHO_UTIL, imgH]);
-
-  const by = y0 + imgH + C.huecoHeroe;
-  const chip = medirChip(ctx, g.chip, ANCHO_UTIL);
-  const cx = (ANCHO - chip.w) / 2;
-  dibujarChip(ctx, chip, cx, by);
-  const pieza = { chip: { ...chip, x: cx, y: by, h: C.chipAlto }, puesta, lista: null };
-
-  if (lineas.length) {
-    const colW = cols === 1
-      ? ANCHO_UTIL - C.listaPad * 2
-      : (ANCHO_UTIL - C.listaPad * 2 - C.huecoColumnas) / 2;
-    const tam = tamQueCabe(ctx, lineas, colW, cols === 1 ? C.listaFuente : C.listaFuenteColumnas);
-    const anchoTexto = cols === 1
-      ? Math.min(colW, anchoLineas(ctx, lineas, colW, tam))
-      : ANCHO_UTIL - C.listaPad * 2;
-    const boxW = anchoTexto + C.listaPad * 2;
-    const boxX = (ANCHO - boxW) / 2;
-    const boxY = by + C.chipAlto + C.huecoChipLista;
-    cajaLista(ctx, boxX, boxY, boxW, altoLista);
-    pieza.lista = [boxX, boxY, boxW, altoLista];
-    columnas.forEach((col, c) => {
-      pintarLineas(ctx, col, boxX + C.listaPad + c * (colW + C.huecoColumnas), boxY + C.listaPad, colW, tam);
-    });
-  }
-
-  punteadas(ctx, [pieza]);
-
-  if (!conPersonaje) return null;
-  const arriba = y0 + totalH + 30;
-  return { x: C.margen, y: arriba, w: ANCHO_UTIL, h: C.contenidoAbajo + 60 - arriba };
-}
-
-// Varios premios: una fila por premio, con el recorte alternando de lado.
-function filas(ctx, grupos, hayPersonaje) {
-  const n = grupos.length;
-  const datos = grupos.map((g) => {
-    const lineas = lineasDe(g, C.maxLineasFila);
-    return { g, lineas, altoT: altoTexto(lineas.length) };
-  });
-
-  const huecos = C.separacionFilas * (n - 1);
-  const base = datos.reduce((s, d) => s + Math.max(d.altoT, C.imgMinFila), 0);
-  const extra = Math.max(0, AREA - huecos - base) / n;
-  datos.forEach((d) => {
-    const caja = Math.min(C.imgMaxFila, Math.max(d.altoT, C.imgMinFila) + extra);
-    d.imgH = altoProducto(d.g.imagen, C.imgAncho, caja);
-    d.alto = Math.max(d.altoT, d.imgH);
-  });
-
-  const totalH = datos.reduce((s, d) => s + d.alto, 0) + huecos;
-  const sobra = AREA - totalH;
-  const conPersonaje = hayPersonaje && sobra >= C.personajeMinHueco;
-  let y = C.contenidoArriba + (conPersonaje ? 0 : Math.max(0, sobra / 2));
-
-  const piezas = [];
-  datos.forEach((d, i) => {
-    const imagenIzquierda = i % 2 === 0;
-    const ix = imagenIzquierda ? C.margen : C.margen + TEXTO_FILA + C.huecoFila;
-    const tx = imagenIzquierda ? C.margen + C.imgAncho + C.huecoFila : C.margen;
-
-    const puesta = imagen(ctx, d.g, [ix, y + (d.alto - d.imgH) / 2, C.imgAncho, d.imgH]);
-
-    const ty = y + (d.alto - d.altoT) / 2;
-    const chip = medirChip(ctx, d.g.chip, TEXTO_FILA);
-    dibujarChip(ctx, chip, tx, ty);
-    const pieza = { chip: { ...chip, x: tx, y: ty, h: C.chipAlto }, puesta, lista: null };
-    piezas.push(pieza);
-
-    if (d.lineas.length) {
-      const colW = TEXTO_FILA - C.listaPad * 2;
-      const tam = tamQueCabe(ctx, d.lineas, colW, C.listaFuente);
-      const boxW = Math.min(colW, anchoLineas(ctx, d.lineas, colW, tam)) + C.listaPad * 2;
-      const boxY = ty + C.chipAlto + C.huecoChipLista;
-      cajaLista(ctx, tx, boxY, boxW, C.listaPad * 2 + d.lineas.length * C.interlinea);
-      pieza.lista = [tx, boxY, boxW, C.listaPad * 2 + d.lineas.length * C.interlinea];
-      pintarLineas(ctx, d.lineas, tx + C.listaPad, boxY + C.listaPad, colW, tam);
-    }
-    y += d.alto + C.separacionFilas;
-  });
-
-  punteadas(ctx, piezas);
-
-  if (!conPersonaje) return null;
-  const arriba = y - C.separacionFilas + 30;
-  return { x: C.margen, y: arriba, w: ANCHO_UTIL, h: C.contenidoAbajo + 60 - arriba };
-}
-
-// Puntos de posición. Sin "Desliza": las imágenes se mandan sueltas por WhatsApp.
-function pie(ctx, indice, total) {
-  const y = ALTO - 96;
-  if (total > 1) {
-    const activo = 44;
-    const punto = 14;
-    const hueco = 14;
-    const ancho = activo + (total - 1) * punto + (total - 1) * hueco;
-    let x = (ANCHO - ancho) / 2;
-    for (let i = 0; i < total; i += 1) {
-      const w = i === indice ? activo : punto;
-      ctx.fillStyle = i === indice ? ESTILO.lima : 'rgba(255, 255, 255, 0.28)';
-      redondeado(ctx, x, y - punto / 2, w, punto, punto / 2);
-      ctx.fill();
-      x += w + hueco;
+    ctx.textAlign = 'left';
+    if (total.enLinea) {
+      ctx.fillText(total.texto, x + total.tras + hueco, medioUltima + 1);
+    } else {
+      const altoTotal = total.tam * D.total.interlinea;
+      ctx.fillText(total.texto, x, abajo + huecoTotal + altoTotal / 2);
     }
   }
 }
 
-function dibujarPersonaje(ctx, img, { x, y, w, h }) {
-  const alto = Math.min(h, C.personajeMaxAlto);
-  contener(ctx, img, x, y + h - alto, w, alto, 'centro', 'abajo');
-}
+// El recorte del premio, o un marcador punteado si todavía no tiene imagen.
+function producto(ctx, grupo, [x, y, w, h]) {
+  if (w <= 0 || h <= 0) return;
 
-function imagen(ctx, g, [x, y, w, h]) {
-  if (g.imagen && g.imagen.complete && g.imagen.naturalWidth) {
+  if (grupo.imagen && grupo.imagen.complete && grupo.imagen.naturalWidth) {
     ctx.save();
     // La sombra no la escala la transformación: va en píxeles reales.
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-    ctx.shadowBlur = 40 * CARRUSEL.escala;
-    ctx.shadowOffsetY = 18 * CARRUSEL.escala;
-    const puesta = contener(ctx, g.imagen, x, y, w, h, 'centro', 'centro');
+    ctx.shadowColor = D.tarjeta.sombra.color;
+    ctx.shadowBlur = D.tarjeta.sombra.desenfoque * CARRUSEL.escala;
+    ctx.shadowOffsetY = D.tarjeta.sombra.bajada * CARRUSEL.escala;
+    contener(ctx, grupo.imagen, x, y, w, h);
     ctx.restore();
-    return {
-      ...puesta,
-      contorno: g.imagen.contorno || null,
-      mascara: g.imagen.mascara || null,
-    };
+    return;
   }
+
   ctx.save();
   ctx.setLineDash([16, 12]);
   ctx.lineWidth = 3;
-  ctx.strokeStyle = 'rgba(201, 247, 63, 0.45)';
-  ctx.fillStyle = 'rgba(201, 247, 63, 0.05)';
+  ctx.strokeStyle = 'rgba(179, 241, 49, 0.45)';
+  ctx.fillStyle = 'rgba(179, 241, 49, 0.05)';
   redondeado(ctx, x, y, w, h, 24);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = 'rgba(201, 247, 63, 0.75)';
-  ctx.font = fuente(600, 30);
+  ctx.fillStyle = 'rgba(179, 241, 49, 0.75)';
+  ctx.font = fuenteT(600, 26);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('Falta la imagen', x + w / 2, y + h / 2);
   ctx.restore();
-  return { x, y, w, h, contorno: null, mascara: null, producto: { x, y, w, h } };
 }
 
-// Punteada de cada chip a su recorte, como en el collage. Esquiva los chips,
-// listas y productos de los demás premios, y su propia lista.
-function punteadas(ctx, piezas) {
-  const cajaChip = (p) => [p.chip.x, p.chip.y, p.chip.w, p.chip.h];
-  const producto = (p) => [p.puesta.producto.x, p.puesta.producto.y, p.puesta.producto.w, p.puesta.producto.h];
-  piezas.forEach((p) => {
-    const ajenas = piezas.flatMap((o) => (o === p
-      ? (o.lista ? [o.lista] : [])
-      : [cajaChip(o), producto(o), ...(o.lista ? [o.lista] : [])]));
-    curvaPunteada(ctx, p.chip, p.puesta, ajenas, cajaChip(p), C.punteada);
-  });
+/* ---------- bloque de ganadores ---------- */
+
+// Tamaño del titular «Ganadores» para una letra de nombres dada: el del diseño
+// (32 sobre 24) mientras los nombres no crezcan, y proporcional cuando lo hacen.
+function tituloPara(tam) {
+  const g = D.ganadores;
+  return Math.max(g.tituloFuente, Math.round((tam * g.tituloFuente) / g.fuente));
 }
 
-// Alto que ocupa de verdad el producto en una caja de ese ancho: un recorte
-// apaisado no llena el alto y reservárselo dejaría un hueco muerto.
-function altoProducto(img, ancho, alto) {
-  if (!img || !img.naturalWidth) return alto;
-  const c = img.caja || { x0: 0, y0: 0, x1: 1, y1: 1 };
-  const anchoUtil = (c.x1 - c.x0) * img.naturalWidth;
-  const altoUtil = (c.y1 - c.y0) * img.naturalHeight;
-  return Math.min(alto, (ancho / anchoUtil) * altoUtil);
+// Resuelve la lista antes de pintarla: cuánta letra, cuántas filas, qué nombres
+// entran y qué alto acaba teniendo la caja.
+//
+// Prioridades, en orden:
+// 1. Que entre toda la gente posible. La caja usa todo el alto hasta el pie y, si
+//    hace falta, la letra baja hasta `min` antes de resumir con «+N más».
+// 2. Con eso asegurado, la letra más GRANDE (hasta `max`) que siga cabiendo de
+//    ancho en su columna y de alto en el hueco.
+// 3. La caja se cierra a `padY` del texto: el margen es el mismo en todas las
+//    plantillas por más que el hueco disponible cambie.
+//
+// Las columnas del diseño son un máximo, no una obligación: se prueba con todas
+// hasta una sola. Columnas más anchas dejan crecer la letra y bajan la lista por
+// el alto que sobra; si con menos no se gana letra (o se esconde más gente), se
+// quedan las del diseño. Así el tamaño depende de cuántos ganadores hay y no del
+// largo de sus nombres: un ganador solo sale igual de grande se llame como se
+// llame.
+//
+// Una caja con `preferir` se queda con ese número de columnas siempre que no
+// esconda a más gente y la letra no baje de `legible`, aunque con menos columnas
+// saliera más grande.
+function medirGanadores(ctx, caja, nombres) {
+  const g = D.ganadores;
+  const opciones = [];
+  for (let columnas = caja.columnas; columnas >= 1; columnas -= 1) {
+    opciones.push(medirConColumnas(ctx, caja, nombres, columnas));
+  }
+  const mejor = opciones.reduce((a, m) => (
+    m.resto < a.resto || (m.resto === a.resto && m.tam > a.tam) ? m : a
+  ));
+  const preferida = caja.preferir && opciones.find((m) => m.columnas === caja.preferir);
+  if (preferida && preferida.resto <= mejor.resto && preferida.tam >= g.legible) return preferida;
+  return mejor;
 }
 
-function medirChip(ctx, texto, anchoMax) {
-  const tam = ajustar(ctx, texto, anchoMax - C.chipPadX * 2, C.chipFuente, C.chipFuenteMin, (t) => fuente(700, t));
-  ctx.font = fuente(700, tam);
-  const recortado = recortar(ctx, texto, anchoMax - C.chipPadX * 2);
-  return { texto: recortado, tam, w: Math.min(anchoMax, ctx.measureText(recortado).width + C.chipPadX * 2) };
+// «Nombre y primer apellido»: `Mariana Perez Arboleda` → `Mariana Perez`,
+// `Juan Carlos Gómez Ruiz` → `Juan Gómez`. Las partículas (de, del, la…) van
+// pegadas a la palabra que las sigue, así `María de la Cruz Pérez` queda
+// `María de la Cruz` y no `María de`.
+const PARTICULAS = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'da', 'do', 'dos', 'van', 'von']);
+function nombreCorto(nombre) {
+  const palabras = String(nombre).trim().split(/\s+/).filter(Boolean);
+  const partes = [];
+  let pendiente = [];
+  for (const p of palabras) {
+    pendiente.push(p);
+    if (!PARTICULAS.has(p.toLowerCase())) {
+      partes.push(pendiente.join(' '));
+      pendiente = [];
+    }
+  }
+  if (pendiente.length) partes.push(pendiente.join(' '));
+  if (partes.length <= 2) return partes.join(' ');
+  // Con tres partes no se sabe si son dos nombres o dos apellidos; lo más común
+  // en los datos es «nombre apellido apellido». Con cuatro o más, el primer
+  // apellido va en la tercera.
+  return `${partes[0]} ${partes[partes.length === 3 ? 1 : 2]}`;
 }
 
-function dibujarChip(ctx, chip, x, y) {
-  ctx.fillStyle = ESTILO.lima;
-  redondeado(ctx, x, y, chip.w, C.chipAlto, C.chipAlto / 2);
-  ctx.fill();
-  ctx.fillStyle = ESTILO.tinta;
-  ctx.font = fuente(700, chip.tam);
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'left';
-  ctx.fillText(chip.texto, x + C.chipPadX, y + C.chipAlto / 2 + 2);
+function medirConColumnas(ctx, caja, nombres, columnas) {
+  const g = D.ganadores;
+  const { w } = caja;
+  const anchoColumna = (w - g.padX * 2 - g.huecoColumna * (columnas - 1)) / columnas;
+
+  const reparto = (tam) => {
+    const tituloTam = tituloPara(tam);
+    const altoTitulo = tituloTam * g.interlinea;
+    const interlinea = tam * g.interlinea;
+    // Lo que la caja deja libre por debajo del titular, con esta letra.
+    const disponible = caja.h - g.padY * 2 - altoTitulo - (nombres.length ? g.hueco : 0);
+    const filas = Math.max(1, Math.floor(disponible / interlinea));
+    const celdas = filas * columnas;
+    const resto = nombres.length > celdas ? nombres.length - (celdas - 1) : 0;
+    const lista = resto > 0
+      ? [...nombres.slice(0, celdas - 1), `+${resto} más`]
+      : nombres.slice();
+    const usadas = lista.length ? Math.min(filas, Math.ceil(lista.length / columnas)) : 0;
+    ctx.save();
+    ctx.font = fuenteG(500, tam);
+    const cabeDeAncho = !lista.some((n) => ctx.measureText(n).width > anchoColumna);
+    ctx.restore();
+    return {
+      tam, tituloTam, altoTitulo, interlinea, filas, resto, lista, usadas, anchoColumna, columnas,
+      cabeDeAncho,
+      alto: g.padY * 2 + altoTitulo + (usadas ? g.hueco + usadas * interlinea : 0),
+    };
+  };
+
+  if (!nombres.length) return reparto(g.fuente);
+
+  // Lo mínimo que se esconde es lo que se esconde a la letra más chica.
+  const minimo = reparto(g.min);
+  for (let tam = g.max; tam > g.min; tam -= 1) {
+    const m = reparto(tam);
+    if (m.cabeDeAncho && m.resto <= minimo.resto) return m;
+  }
+  // Ni a la mínima cabe algún nombre de ancho: ese se recorta con «…».
+  return minimo;
 }
 
-function cajaLista(ctx, x, y, w, h) {
-  ctx.fillStyle = ESTILO.cajaFondoCollage;
-  ctx.strokeStyle = ESTILO.cajaBordeCollage;
-  ctx.lineWidth = 2;
-  redondeado(ctx, x, y, w, h, C.listaRadio);
-  ctx.fill();
+// Caja oscura con «Ganadores» y la lista a varias columnas. El alto lo pone
+// `medirGanadores`; lo que aun así no cabe se resume en «+N más».
+function dibujarGanadores(ctx, caja, nombres) {
+  const { x, y, w } = caja;
+  const g = D.ganadores;
+
+  // Primero se mide, después se pinta: el alto de la caja SALE del contenido, no
+  // al revés. Así el aire entre el texto y el borde es `padY` en todas las
+  // plantillas, en vez de depender de cuánto se haya estirado el recuadro.
+  if (caja.nombreCorto) nombres = nombres.map(nombreCorto);
+  const medida = medirGanadores(ctx, caja, nombres);
+  const h = caja.lado ? caja.h : medida.alto;
+
+  // El diseño la oscurece con un degradado a 156,77° en modo `multiply`. Con
+  // `source-over` la caja quedaba bastante más clara: muestreando el render de
+  // Figma, el fondo baja a un factor de 0,57-0,71, y eso solo lo da el multiply.
+  //
+  // El eje de un degradado CSS no va de esquina a esquina: pasa por el centro con
+  // ese ángulo y su largo es |w·sin| + |h·cos|. Salía torcido cuando lo tomaba por
+  // la esquina, y el lado derecho de la caja se quedaba casi sin oscurecer.
+  const rad = (156.76878754062267 * Math.PI) / 180;
+  const dx = Math.sin(rad);
+  const dy = -Math.cos(rad);
+  const largo = Math.abs(w * dx) + Math.abs(h * dy);
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const oscuro = ctx.createLinearGradient(
+    cx - (dx * largo) / 2, cy - (dy * largo) / 2,
+    cx + (dx * largo) / 2, cy + (dy * largo) / 2,
+  );
+  // Los stops del diseño están en 25,5 % y 115,15 %; el segundo cae fuera del eje,
+  // así que se reproyecta a 100 % interpolando color y opacidad.
+  const fuera = (1 - 0.25555) / (1.1515 - 0.25555);
+  const mezcla = (a, b) => Math.round(a + (b - a) * fuera);
+  oscuro.addColorStop(0, ESTILO.neutral00);
+  oscuro.addColorStop(0.25555, ESTILO.neutral00);
+  oscuro.addColorStop(1, `rgba(${mezcla(10, 199)}, ${mezcla(11, 204)}, ${mezcla(12, 212)}, ${(0.56 * (1 - fuera)).toFixed(4)})`);
+
+  ctx.save();
+  redondeado(ctx, x, y, w, h, g.radio);
+  ctx.clip();
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = oscuro;
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+
+  redondeado(ctx, x, y, w, h, g.radio);
+  ctx.strokeStyle = ESTILO.neutral05;
+  ctx.lineWidth = g.borde;
   ctx.stroke();
-}
 
-const fuenteLinea = (l, tam = C.listaFuente) => fuenteGanadores(l.tipo === 'monto' ? 700 : 400, tam);
+  const {
+    usadas, interlinea, anchoColumna, columnas, lista, resto, tam, tituloTam, altoTitulo,
+  } = medida;
 
-// Tamaño de letra al que caben todas las líneas sin cortar ningún nombre. Baja
-// como mucho hasta `minLista`; más allá se recorta con puntos suspensivos.
-function tamQueCabe(ctx, lineas, ancho, tamMax) {
-  let tam = tamMax;
-  while (tam > C.minLista) {
-    const sobra = lineas.some((l) => {
-      ctx.font = fuenteLinea(l, tam);
-      return ctx.measureText(l.texto).width + (l.tipo === 'monto' ? 0 : C.sangria) > ancho;
-    });
-    if (!sobra) break;
-    tam -= 1;
-  }
-  return tam;
-}
+  // Mismo margen arriba que abajo. Si la caja se cerró sobre el texto, esto es
+  // `padY` justo; si tiene el alto de su vecina, el aire sobrante se reparte.
+  const arriba = y + (h - (medida.alto - g.padY * 2)) / 2;
 
-function anchoLineas(ctx, lineas, anchoMax, tam) {
-  let max = 0;
-  for (const l of lineas) {
-    ctx.font = fuenteLinea(l, tam);
-    const sangria = l.tipo === 'monto' ? 0 : C.sangria;
-    max = Math.max(max, ctx.measureText(l.texto).width + sangria);
-  }
-  return Math.min(anchoMax, Math.ceil(max));
-}
-
-function pintarLineas(ctx, lineas, x, y, ancho, tam) {
+  ctx.fillStyle = ESTILO.g500;
+  ctx.font = fuenteG(700, tituloTam);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  lineas.forEach((l, i) => {
-    const ly = y + C.interlinea * (i + 0.5);
-    ctx.font = fuenteLinea(l, tam);
-    if (l.tipo === 'monto') {
-      ctx.fillStyle = ESTILO.lima;
-      ctx.fillText(recortar(ctx, l.texto, ancho), x, ly);
-      return;
-    }
-    if (l.tipo === 'nombre') {
-      ctx.fillStyle = ESTILO.lima;
-      ctx.fillText('•', x, ly);
-      ctx.fillStyle = ESTILO.cajaTexto;
-    } else {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    }
-    ctx.fillText(recortar(ctx, l.texto, ancho - C.sangria), x + C.sangria, ly);
-  });
-}
+  ctx.fillText(g.texto, x + g.padX, arriba + altoTitulo / 2);
 
-function ajustar(ctx, texto, anchoMax, tamMax, tamMin, fuenteDe) {
-  let tam = tamMax;
-  while (tam > tamMin) {
-    ctx.font = fuenteDe(tam);
-    if (ctx.measureText(texto).width <= anchoMax) break;
-    tam -= 2;
-  }
-  return tam;
+  if (!lista.length) return;
+
+  const listaArriba = arriba + altoTitulo + g.hueco;
+  // Se llena fila por fila: con pocos nombres ocupan primero el ancho de las
+  // columnas y solo bajan cuando la fila está completa. Así la lista nunca pasa
+  // de las `usadas` filas con las que se cerró la caja.
+  lista.forEach((nombre, i) => {
+    const col = i % columnas;
+    const fila = Math.floor(i / columnas);
+    if (fila >= usadas) return;
+    const esResto = resto > 0 && i === lista.length - 1;
+    ctx.font = fuenteG(esResto ? 700 : 500, tam);
+    ctx.fillStyle = esResto ? ESTILO.g500 : ESTILO.neutral07;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText(
+      recortar(ctx, nombre, anchoColumna),
+      x + g.padX + col * (anchoColumna + g.huecoColumna),
+      listaArriba + interlinea * (fila + 0.5),
+    );
+  });
 }
