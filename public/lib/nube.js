@@ -47,3 +47,16 @@ export function escucharPosiciones(alCambiar, alError) {
 export function guardarPosiciones(posiciones) {
   return setDoc(doc(db, 'premiosConfig', 'posiciones'), { posiciones });
 }
+
+// Logos de los clientes: un documento por compañía (id = slug del nombre) con el
+// logo ya pasado a blanco, como data URI WebP. Sale en la cabecera de la pieza en
+// lugar del nombre escrito.
+export function escucharClientes(alCambiar, alError) {
+  return onSnapshot(collection(db, 'clientes'), (snap) => {
+    alCambiar(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  }, alError);
+}
+
+export function guardarCliente(id, datos) {
+  return setDoc(doc(db, 'clientes', id), datos, { merge: true });
+}

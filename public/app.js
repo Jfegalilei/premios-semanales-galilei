@@ -13,6 +13,7 @@ import {
 } from './lib/carrusel.js';
 import {
   escucharPremios, guardarPremio, escucharPosiciones, guardarPosiciones,
+  escucharClientes, guardarCliente,
 } from './lib/nube.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -27,7 +28,9 @@ const estado = {
   personajes: [],       // poses de Gali: una sale en el hueco de cada pieza
   fondos: [],           // escenarios verticales: uno de fondo en la pieza de celular
   tirada: '',           // se renueva con cada CSV: reparte los personajes de nuevo
+  fechaInforme: null,   // 'AAAA-MM-DD' del día en que se cargó el CSV
   posiciones: {},       // `modo-cantidad` -> centro colocado a mano
+  logosClientes: new Map(), // slug de la compañía -> logo en blanco (HTMLImageElement)
   personajePieza: null, // el de la pieza en pantalla, para poder arrastrarlo
   heroeManual: null,
   // 'carrusel' (celular, todos los premios juntos), 'collage' o 'reticula'.
@@ -55,6 +58,19 @@ async function init() {
     estado.posiciones = posiciones;
     if (companiaActual()) pintar();
   }, errorNube);
+  escucharClientes(alCambiarClientes, errorNube);
+
+  $('#entradaLogoCliente').addEventListener('change', async (e) => {
+    const archivo = e.target.files[0];
+    e.target.value = '';
+    if (archivo) await subirLogoCliente(archivo);
+  });
+  $('#botonQuitarLogo').addEventListener('click', async () => {
+    const compania = companiaActual();
+    if (!compania) return;
+    await guardarCliente(slug(compania.nombre), { nombre: compania.nombre, logo: '' })
+      .catch((err) => alert(`No se pudo quitar el logo: ${err.message}`));
+  });
 
   $('#entradaCsv').addEventListener('change', (e) => {
     const archivo = e.target.files[0];
@@ -149,6 +165,139 @@ async function alCambiarCatalogo(premios) {
     pintarCompanias();
     pintar();
   }
+}
+
+/* ---------- logos de clientes ---------- */
+
+async function alCambiarClientes(clientes) {
+  const logos = new Map();
+  await Promise.all(clientes.filter((c) => c.logo).map(async (c) => {
+    const previo = estado.logosClientes.get(c.id);
+    if (previo && previo.fuente === c.logo) {
+      logos.set(c.id, previo);
+      return;
+    }
+    const img = await cargarImagen(c.logo).catch(() => null);
+    if (!img) return;
+    img.fuente = c.logo;
+    logos.set(c.id, img);
+  }));
+  estado.logosClientes = logos;
+  if (companiaActual()) pintar();
+}
+
+function logoDe(compania) {
+  return compania ? estado.logosClientes.get(slug(compania.nombre)) || null : null;
+}
+
+async function subirLogoCliente(archivo) {
+  const compania = companiaActual();
+  if (!compania) return;
+  const boton = $('#etiquetaLogoCliente');
+  boton.classList.add('ocupado');
+  try {
+    const logo = await logoEnBlanco(await leerComoDataUrl(archivo));
+    await guardarCliente(slug(compania.nombre), { nombre: compania.nombre, logo });
+  } catch (err) {
+    alert(`No se pudo subir el logo: ${err.message}`);
+  } finally {
+    boton.classList.remove('ocupado');
+  }
+}
+
+// Pasa el logo a una máscara blanca: se conserva solo la silueta y todo lo que
+// se ve queda en blanco puro, sea del color que sea.
+//
+// - Con transparencia (PNG, SVG, WebP): la silueta es el canal alfa.
+// - Sin transparencia (JPG, o un PNG con fondo): no hay alfa que usar, así que
+//   se toma como fondo el color de las esquinas y cada píxel se vuelve tanto más
+//   opaco cuanto más se aleja de él. Un logo oscuro sobre blanco o uno claro
+//   sobre un color sale igual de limpio.
+//
+// Después se recorta el aire transparente de los bordes —así se alinea por el
+// dibujo— y se guarda en WebP a un tamaño de sobra para la cabecera.
+async function logoEnBlanco(dataUrl) {
+  const img = await cargarImagen(dataUrl);
+  const escala = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(1, Math.round(img.naturalWidth * escala));
+  const h = Math.max(1, Math.round(img.naturalHeight * escala));
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, w, h);
+  const datos = ctx.getImageData(0, 0, w, h);
+  const p = datos.data;
+
+  let transparentes = 0;
+  for (let i = 3; i < p.length; i += 4) if (p[i] < 250) transparentes += 1;
+  const conAlfa = transparentes > (p.length / 4) * 0.01;
+
+  let fondo = null;
+  if (!conAlfa) {
+    const esquinas = [0, w - 1, (h - 1) * w, h * w - 1].map((k) => [p[k * 4], p[k * 4 + 1], p[k * 4 + 2]]);
+    fondo = [0, 1, 2].map((canal) => esquinas.reduce((suma, e) => suma + e[canal], 0) / 4);
+  }
+
+  let x0 = w;
+  let y0 = h;
+  let x1 = -1;
+  let y1 = -1;
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const i = (y * w + x) * 4;
+      let a = p[i + 3];
+      if (fondo) {
+        const d = Math.hypot(p[i] - fondo[0], p[i + 1] - fondo[1], p[i + 2] - fondo[2]);
+        // Por debajo de 24 es ruido de compresión; hacia 120 ya es tinta plena.
+        a = Math.round(Math.min(1, Math.max(0, (d - 24) / 96)) * 255);
+      }
+      p[i] = 255;
+      p[i + 1] = 255;
+      p[i + 2] = 255;
+      p[i + 3] = a;
+      if (a > 12) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) throw new Error('el logo quedó vacío: no se encontró ningún dibujo en la imagen.');
+  ctx.putImageData(datos, 0, 0);
+
+  const recorte = document.createElement('canvas');
+  recorte.width = x1 - x0 + 1;
+  recorte.height = y1 - y0 + 1;
+  recorte.getContext('2d').drawImage(c, x0, y0, recorte.width, recorte.height, 0, 0, recorte.width, recorte.height);
+
+  // La cabecera lo pinta a ~55 px de alto (110 en el JPG exportado): con 400 de
+  // alto o 1200 de ancho sobra, y pesa poco dentro del documento de Firestore.
+  const final = Math.min(1, 400 / recorte.height, 1200 / recorte.width);
+  const salida = document.createElement('canvas');
+  salida.width = Math.max(1, Math.round(recorte.width * final));
+  salida.height = Math.max(1, Math.round(recorte.height * final));
+  salida.getContext('2d').drawImage(recorte, 0, 0, salida.width, salida.height);
+  const url = salida.toDataURL('image/webp', 0.92);
+  if (url.length > 280000) throw new Error('el logo pesa demasiado incluso comprimido.');
+  return url;
+}
+
+function pintarLogoCliente(compania) {
+  const logo = logoDe(compania);
+  const miniatura = $('#miniaturaLogo');
+  miniatura.innerHTML = '';
+  if (logo) {
+    const img = document.createElement('img');
+    img.src = logo.src;
+    img.alt = `Logo de ${compania.nombre}`;
+    miniatura.appendChild(img);
+  } else {
+    miniatura.textContent = 'Sin logo';
+  }
+  $('#textoLogoCliente').textContent = logo ? 'Cambiar logo' : 'Subir logo';
+  $('#botonQuitarLogo').hidden = !logo;
 }
 
 function errorNube(err) {
@@ -373,6 +522,7 @@ async function leerArchivo(archivo) {
   // los mismos bichos a las mismas compañías. Dentro de una carga la tirada no
   // cambia, así que la vista previa no muda de personaje a cada repintado.
   estado.tirada = String(Math.random());
+  estado.fechaInforme = hoyLocal();
 
   estado.seleccion = estado.companias[0]?.nombre || null;
   estado.heroeManual = null;
@@ -752,6 +902,17 @@ function armarGrupo(grupo) {
     ? formatearMonto(porMontos.reduce((s, e) => s + e.monto, 0), unidad)
     : null;
 
+  // Nequi lleva además el desglose en la propia tarjeta: cada monto que se
+  // entregó y cuántas veces, del mayor al menor. Cuenta ENTREGAS, igual que el
+  // total.
+  if (familia === 'nequi' && porMontos.length) {
+    const veces = new Map();
+    for (const e of porMontos) veces.set(e.monto, (veces.get(e.monto) || 0) + 1);
+    datos.valores = [...veces.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .map(([monto, n]) => ({ texto: formatearMonto(monto, unidad), veces: n }));
+  }
+
   return datos;
 }
 
@@ -881,6 +1042,7 @@ function repintarConPersonaje() {
   const { img, centro, escala } = estado.personajePieza;
   dibujarPieza(lienzo, {
     kicker: $('#campoKicker').value.trim(),
+    logoCliente: logoDe(compania),
     titulo: $('#campoTitulo').value.trim() || 'Premios entregados',
     etiqueta: etiquetaDe(compania),
     logo: estado.logo,
@@ -927,6 +1089,7 @@ function pintar() {
     $('#campoKicker').value = compania.nombre;
     $('#campoKicker').dataset.compania = compania.nombre;
   }
+  pintarLogoCliente(compania);
 
   const carrusel = estado.modo === 'carrusel';
   $('#vistaUnica').classList.toggle('oculto', carrusel);
@@ -950,6 +1113,7 @@ function pintar() {
   try {
     dibujarPieza(lienzo, {
       kicker: $('#campoKicker').value.trim(),
+      logoCliente: logoDe(compania),
       titulo: $('#campoTitulo').value.trim() || 'Premios entregados',
       etiqueta: etiquetaDe(compania),
       logo: estado.logo,
@@ -1009,6 +1173,7 @@ function pintarCarrusel(compania) {
   const semilla = `${estado.tirada}|${compania.nombre}|${fecha}`;
   const comunes = {
     kicker: $('#campoKicker').value.trim(),
+    logoCliente: logoDe(compania),
     titulo: $('#campoTitulo').value.trim() || 'Premios entregados',
     etiqueta: etiquetaDe(compania),
     logo: estado.logo,
@@ -1148,27 +1313,32 @@ function descargarBlob(blob, nombre) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-// La etiqueta verde. Si el campo está vacío, dice las fechas de la semana de las
-// entregas —de lunes a domingo, la que contiene la entrega más reciente—, p. ej.
-// «7 Sept - 13 Sept». Lo que se escriba a mano manda sobre eso.
+// La etiqueta verde. Si el campo está vacío, dice los últimos 8 días contando el
+// día en que se cargó el informe, p. ej. «9 Sept - 16 Sept». No
+// depende de las fechas de entrega: es la misma para todas las compañías.
+// Lo que se escriba a mano manda sobre eso.
 function etiquetaDe(compania) {
   const escrita = $('#campoEtiqueta').value.trim();
   if (escrita || !compania) return escrita;
-  return rangoSemana(fechaMaxima(compania.entregas));
+  return ultimosDias(estado.fechaInforme || hoyLocal(), 8);
+}
+
+// Fecha de hoy en la zona horaria del navegador (no en UTC: de noche en Colombia
+// UTC ya va por el día siguiente).
+function hoyLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sept', 'Oct', 'Nov', 'Dic'];
 
-function rangoSemana(fechaISO) {
+function ultimosDias(fechaISO, dias) {
   const [a, m, d] = fechaISO.split('-').map(Number);
-  const dia = new Date(Date.UTC(a, m - 1, d));
-  // getUTCDay: domingo es 0. Se retrocede hasta el lunes.
-  const lunes = new Date(dia);
-  lunes.setUTCDate(dia.getUTCDate() - ((dia.getUTCDay() + 6) % 7));
-  const domingo = new Date(lunes);
-  domingo.setUTCDate(lunes.getUTCDate() + 6);
+  const fin = new Date(Date.UTC(a, m - 1, d));
+  const inicio = new Date(fin);
+  inicio.setUTCDate(fin.getUTCDate() - (dias - 1));
   const texto = (f) => `${f.getUTCDate()} ${MESES[f.getUTCMonth()]}`;
-  return `${texto(lunes)} - ${texto(domingo)}`;
+  return `${texto(inicio)} - ${texto(fin)}`;
 }
 
 function fechaMaxima(entregas) {

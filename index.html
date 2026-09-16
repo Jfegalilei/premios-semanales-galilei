@@ -63,6 +63,17 @@
             <span>Cliente</span>
             <input type="text" id="campoKicker" autocomplete="off">
           </label>
+          <div class="logo-cliente">
+            <span>Logo del cliente</span>
+            <div class="fila-logo">
+              <div id="miniaturaLogo" class="miniatura-logo">Sin logo</div>
+              <label id="etiquetaLogoCliente" class="boton" title="Se pasa a blanco al subirlo y lo ve todo el equipo">
+                <span id="textoLogoCliente">Subir logo</span>
+                <input type="file" id="entradaLogoCliente" accept="image/*" hidden>
+              </label>
+              <button type="button" id="botonQuitarLogo" class="enlace" hidden>Quitar</button>
+            </div>
+          </div>
           <label>
             <span>Título</span>
             <input type="text" id="campoTitulo" value="Premios Entregados" autocomplete="off">

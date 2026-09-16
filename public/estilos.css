@@ -215,6 +215,26 @@ input[type="text"]:disabled {
 }
 .diapositiva figcaption { color: var(--tenue); font-size: 12px; margin-top: 6px; }
 
+/* Logo del cliente: miniatura sobre oscuro (el logo ya viene en blanco) y botón. */
+.logo-cliente { display: grid; gap: 5px; font-size: 12px; color: var(--tenue); min-width: 0; }
+.fila-logo { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.miniatura-logo {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background: #050607;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  color: var(--tenue);
+  font-size: 11.5px;
+}
+.miniatura-logo img { max-height: 24px; max-width: 100%; object-fit: contain; }
+.fila-logo .boton { height: 38px; display: inline-flex; align-items: center; white-space: nowrap; }
+.fila-logo .boton.ocupado { opacity: 0.6; pointer-events: none; }
+
 @media (max-width: 1100px) {
   .trabajo { grid-template-columns: 1fr; }
 }

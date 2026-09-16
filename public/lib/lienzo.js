@@ -425,8 +425,13 @@ function fondo(ctx) {
   ctx.fillRect(0, 0, ancho, alto);
 }
 
-function cabecera(ctx, { kicker, titulo, etiqueta, logo }) {
-  if (kicker) {
+function cabecera(ctx, { kicker, logoCliente, titulo, etiqueta, logo }) {
+  // Con logo del cliente subido va el logo en lugar del nombre: de alto el de la
+  // letra del nombre con aire, apoyado donde estaría su línea base.
+  if (logoCliente && logoCliente.complete && logoCliente.naturalWidth) {
+    const alto = ESTILO.kickerFuente * 1.6;
+    contener(ctx, logoCliente, CABECERA.kicker[0], CABECERA.kicker[1] - alto, 1400, alto, 'izquierda', 'abajo');
+  } else if (kicker) {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
     ctx.font = fuente(600, ESTILO.kickerFuente);
     ctx.textBaseline = 'alphabetic';
