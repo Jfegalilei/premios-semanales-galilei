@@ -794,10 +794,10 @@ function medirValores(ctx, valores, ancho, escala, altoMax = null) {
     : Math.max(1, Math.floor((altoMax + hueco) / (alto + hueco)));
   const todas = valores.map((m) => medir(m.texto, m.veces));
   let filas = repartir(todas);
-  // Se van quitando montos del final hasta que el resto más «+N» quepa.
+  // Se van quitando montos del final hasta que el resto más «+N Ganadores!» quepa.
   for (let quedan = todas.length - 1; filas.length > maxFilas && quedan >= 1; quedan -= 1) {
     const resto = valores.slice(quedan).reduce((s, m) => s + m.veces, 0);
-    filas = repartir([...todas.slice(0, quedan), { ...medir(`+${resto}`, 1), resto: true }]);
+    filas = repartir([...todas.slice(0, quedan), { ...medir(`+${resto} ${resto === 1 ? 'Ganador' : 'Ganadores'}!`, 1), resto: true }]);
   }
   ctx.restore();
 
