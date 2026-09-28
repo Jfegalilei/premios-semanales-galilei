@@ -1121,7 +1121,7 @@ function medirConColumnas(ctx, caja, nombres, columnas) {
     const celdas = filas * columnas;
     const resto = nombres.length > celdas ? nombres.length - (celdas - 1) : 0;
     const lista = resto > 0
-      ? [...nombres.slice(0, celdas - 1), `+${resto} más`]
+      ? [...nombres.slice(0, celdas - 1), `+${resto} ${resto === 1 ? 'Ganador' : 'Ganadores'}!`]
       : nombres.slice();
     const usadas = lista.length ? Math.min(filas, Math.ceil(lista.length / columnas)) : 0;
     ctx.save();

@@ -549,7 +549,7 @@ function lineasDeLista(ctx, grupo, ancho, maxLineas) {
   }));
 
   const sobran = entradas.length - lineas.length;
-  if (sobran > 0) lineas.push({ texto: `+${sobran} más`, vineta: false });
+  if (sobran > 0) lineas.push({ texto: `+${sobran} ${sobran === 1 ? 'Ganador' : 'Ganadores'}!`, vineta: false });
 
   ctx.restore();
   return { lineas };
