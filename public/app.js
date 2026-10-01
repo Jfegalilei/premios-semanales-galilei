@@ -523,6 +523,9 @@ async function leerArchivo(archivo) {
   // cambia, así que la vista previa no muda de personaje a cada repintado.
   estado.tirada = String(Math.random());
   estado.fechaInforme = hoyLocal();
+  // La etiqueta arranca con las fechas automáticas, pero queda escrita en el
+  // campo para que se pueda corregir a mano.
+  $('#campoEtiqueta').value = ultimosDias(estado.fechaInforme, 8);
 
   estado.seleccion = estado.companias[0]?.nombre || null;
   estado.heroeManual = null;
@@ -1090,6 +1093,7 @@ function pintar() {
     $('#campoKicker').dataset.compania = compania.nombre;
   }
   pintarLogoCliente(compania);
+  pintarInfoFechas(compania);
 
   const carrusel = estado.modo === 'carrusel';
   $('#vistaUnica').classList.toggle('oculto', carrusel);
@@ -1313,10 +1317,10 @@ function descargarBlob(blob, nombre) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-// La etiqueta verde. Si el campo está vacío, dice los últimos 8 días contando el
-// día en que se cargó el informe, p. ej. «9 Sept - 16 Sept». No
+// La etiqueta verde. Al cargar el CSV el campo se llena con los últimos 8 días
+// contando el día en que se cargó el informe, p. ej. «9 Sept - 16 Sept». No
 // depende de las fechas de entrega: es la misma para todas las compañías.
-// Lo que se escriba a mano manda sobre eso.
+// Se puede editar; si se deja vacío, vuelve a salir la automática.
 function etiquetaDe(compania) {
   const escrita = $('#campoEtiqueta').value.trim();
   if (escrita || !compania) return escrita;
@@ -1339,6 +1343,26 @@ function ultimosDias(fechaISO, dias) {
   inicio.setUTCDate(fin.getUTCDate() - (dias - 1));
   const texto = (f) => `${f.getUTCDate()} ${MESES[f.getUTCMonth()]}`;
   return `${texto(inicio)} - ${texto(fin)}`;
+}
+
+// Solo informativo, debajo de la etiqueta: de qué fecha a qué fecha van las
+// entregas de esta compañía en el CSV importado.
+function pintarInfoFechas(compania) {
+  const fechas = compania.entregas.map((e) => e.fecha).filter(Boolean).sort();
+  const info = $('#infoFechas');
+  if (!fechas.length) {
+    info.textContent = 'El informe no trae fechas de entrega';
+    return;
+  }
+  const texto = (iso) => {
+    const [a, m, d] = iso.split('-').map(Number);
+    return `${d} ${MESES[m - 1]} ${a}`;
+  };
+  const primera = fechas[0];
+  const ultima = fechas[fechas.length - 1];
+  info.textContent = primera === ultima
+    ? `Premios del informe: ${texto(primera)}`
+    : `Premios del informe: ${texto(primera)} – ${texto(ultima)}`;
 }
 
 function fechaMaxima(entregas) {
