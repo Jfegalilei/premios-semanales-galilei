@@ -123,6 +123,15 @@ const D = {
     // 1736 es donde la apoya la plantilla de seis, la que más baja.
     pie: 1736,
   },
+
+  // Indicador de páginas, solo cuando la pieza se parte en varias: puntos
+  // centrados en la franja del pie (la caja de ganadores más baja termina en
+  // 1762) con la página actual como pastilla verde, y «Desliza →» a la derecha
+  // mientras quede otra página detrás.
+  paginas: {
+    cy: 1774, radio: 6, activo: 30, hueco: 12,
+    fuente: 22, flecha: 14, margen: 69,
+  },
 };
 
 const fuenteT = (peso, tam) => `${peso} ${tam}px ${ESTILO.fuenteTitulo}`;
@@ -357,8 +366,50 @@ export function dibujarDiapositiva(canvas, {
 
   dibujarGanadores(ctx, cajaGanadores(plantilla), diapositiva.ganadores || []);
 
+  if (diapositiva.partes > 1) dibujarPaginas(ctx, diapositiva.parte, diapositiva.partes);
+
   ctx.restore();
   return canvas;
+}
+
+// Puntos de «hay más páginas»: uno por página, la actual estirada en verde.
+function dibujarPaginas(ctx, parte, partes) {
+  const { cy, radio, activo, hueco, fuente, flecha, margen } = D.paginas;
+  const alto = radio * 2;
+  const total = activo + (partes - 1) * alto + (partes - 1) * hueco;
+  let x = (ANCHO - total) / 2;
+
+  ctx.save();
+  for (let i = 1; i <= partes; i++) {
+    const w = i === parte ? activo : alto;
+    ctx.fillStyle = i === parte ? ESTILO.g500 : 'rgba(255, 255, 255, 0.45)';
+    redondeado(ctx, x, cy - radio, w, alto, radio);
+    ctx.fill();
+    x += w + hueco;
+  }
+
+  if (parte < partes) {
+    const derecha = ANCHO - margen;
+    // Flecha: palito y punta, en el mismo verde.
+    ctx.strokeStyle = ESTILO.g500;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(derecha - flecha * 1.6, cy);
+    ctx.lineTo(derecha, cy);
+    ctx.moveTo(derecha - flecha * 0.6, cy - flecha * 0.6);
+    ctx.lineTo(derecha, cy);
+    ctx.lineTo(derecha - flecha * 0.6, cy + flecha * 0.6);
+    ctx.stroke();
+
+    ctx.fillStyle = ESTILO.blanco;
+    ctx.font = fuenteG(600, fuente);
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'right';
+    ctx.fillText('Desliza', derecha - flecha * 1.6 - 10, cy + 1);
+  }
+  ctx.restore();
 }
 
 // Foto del escenario a sangre, el degradado negro que sube desde el pie y un velo
