@@ -411,24 +411,30 @@ premios y chocaba con el título.
 
 ### Los datos
 
-Salen de **dos queries cortas** (`public/lib/consultas.js`), que la página muestra con botón
-«Copiar»: la 1 trae conocimiento (juegos y preguntas falladas) y la 2 compañías y premios. Iban
-en una sola, pero Analytics Chat corta el mensaje hacia los 1.900 caracteres; cada una mide unos
-1.150. No llevan parámetros: traen todas las compañías desde el primer día del mes anterior, así
-que se pegan siempre igual y con una tanda salen todas las semanas y meses. Cada fila lleva un
-`tipo` —`juego`, `fallo`, `compania` o `premio`— y columnas genéricas `n1`–`n4` / `t1`–`t3`
-(el detalle está en el comentario de `consultas.js`). Los dos CSV se sueltan juntos o de a uno;
-cada uno reemplaza solo su parte.
+Salen de **dos queries** (`public/lib/consultas.js`), que la página muestra con botón «Copiar».
+No llevan parámetros —traen todas las compañías desde el primer día del mes anterior—, así que se
+pegan siempre igual en Analytics Chat. Cada una mide unos 1.600 y 1.150 caracteres: el chat corta
+el mensaje hacia los 1.900.
 
-Lo que se puede filtrar en el navegador se filtra allá (`reporte-datos.js`), para que la query
-sea corta: las experiencias Tutorial y GaliMisión, el estado de las entregas (Nequi
-`GENERATED`/`REDEEMED`, el resto `DELIVERED`/`PAID`), los GaliTickets y el armado del nombre del
-premio. En SQL quedan solo `is_dummy`, `is_stealth`, `experience.active` y la fecha.
+1. **Conocimiento**, ya agregada en SQL por compañía y periodo (cada semana de lunes a domingo y
+   cada mes): un `resumen` (jugadores con partidas, juegos, segundos, precisión media), el `top`
+   3 por puntaje máximo y la pregunta más fallada (`fallo`) con su respuesta correcta. Va
+   agregada porque el chat devuelve como mucho **10.000 filas**: con una fila por jugador y día
+   no alcanzaba ni para un mes. Así salen unos 400.
+2. **Compañías y premios**: jugadores activos y experiencias de cada compañía, y una fila por
+   premio entregado (~1.300 en mes y medio).
 
-Los juegos llegan agregados por jugador y día, que basta para recomponer exacto cualquier
-periodo: precisión = Σ precisión / Σ juegos. Las fechas pasan a hora de Colombia restando 5 h. Si
-la precisión viene de 0 a 1 se pasa a porcentaje. También se acepta el export de la pieza semanal,
-que reemplaza solo los premios.
+Para bajar el CSV completo hay que usar el **«Export» del pie de la respuesta** (junto a «Save as
+report»), que baja `insights-export (N).csv`. El botón de exportar de la barra de la tabla solo
+baja las filas cargadas y se corta en 500.
+
+`actor` no tiene nombre: Analytics agrega solo la columna `Player` al ver `player_id`. Las fechas
+llegan en ISO (`2026-09-01T00:00:00.000Z`) y la página toma los diez primeros caracteres.
+
+En el navegador (`reporte-datos.js`) se filtra lo que no hace falta en SQL: el estado de las
+entregas (Nequi `GENERATED`/`REDEEMED`, el resto `DELIVERED`/`PAID`), los GaliTickets, Tutorial y
+GaliMisión en la lista de experiencias, y se arma el nombre del premio (`${quantity}`). La
+pregunta más fallada sí se filtra en SQL, porque solo se trae una por periodo.
 
 **Ver ejemplo** (o `reporte.html?demo`) carga datos inventados de «Cliente Demo»
 (`public/lib/reporte-demo.js`) para ver las hojas sin CSV.

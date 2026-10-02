@@ -5,7 +5,7 @@ import { CONSULTAS } from './lib/consultas.js';
 import { periodosEntre, diaMes } from './lib/periodos.js';
 import { csvDeEjemplo } from './lib/reporte-demo.js';
 import {
-  interpretarArchivo, conocimiento, premiosEntregados, mapaDeNombres,
+  interpretarArchivo, conocimiento, premiosEntregados,
   rangoDeDatos, companiasConDatos,
 } from './lib/reporte-datos.js';
 import { dibujarConocimiento } from './lib/hoja-conocimiento.js';
@@ -22,7 +22,7 @@ import { slug } from './lib/normalizador.js';
 const $ = (sel) => document.querySelector(sel);
 
 const estado = {
-  datos: { juegos: [], fallos: [], companias: [], premios: [] },
+  datos: { resumenes: [], tops: [], fallos: [], companias: [], premios: [] },
   origen: '',           // qué se cargó, para el aviso bajo la zona de carga
   periodos: [],
   periodo: null,
@@ -191,7 +191,7 @@ function pintarArchivos() {
   const chip = (listo, texto) => `<span class="${listo ? 'listo' : ''}">${listo ? '✓ ' : ''}${texto}</span>`;
   const demo = estado.origen.startsWith('Ejemplo') ? chip(true, 'Ejemplo con datos inventados') : '';
   $('#estadoArchivos').innerHTML = demo
-    + chip(d.juegos.length > 0, `Query 1 · Conocimiento${d.juegos.length ? ` · ${d.juegos.length} filas` : ''}`)
+    + chip(d.resumenes.length > 0, `Query 1 · Conocimiento${d.resumenes.length ? ` · ${d.resumenes.length} periodos` : ''}`)
     + chip(d.companias.length > 0, `Query 2 · Compañías y premios${d.companias.length ? ` · ${d.premios.length} premios` : ''}`);
 }
 
@@ -218,7 +218,7 @@ function alCambiarDatos() {
 
   $('#zonaVacia').classList.toggle('compacta', estado.companias.length > 0);
   $('#panelTrabajo').classList.toggle('oculto', !estado.companias.length);
-  if (estado.datos.juegos.length) $('#panelConsultas details').open = false;
+  if (estado.datos.resumenes.length) $('#panelConsultas details').open = false;
   pintarCompanias();
   pintar();
 }
@@ -255,7 +255,7 @@ function reporteDe(compania) {
   return {
     cliente: (estado.nombresCliente[compania] || '').trim() || compania,
     periodo: estado.periodo,
-    conocimiento: conocimiento(estado.datos, compania, estado.periodo, mapaDeNombres(estado.datos)),
+    conocimiento: conocimiento(estado.datos, compania, estado.periodo),
     premios: premiosEntregados(estado.datos, compania, estado.periodo, estado.catalogo),
     logoCliente: estado.logos.get(slug(compania)) || null,
   };
@@ -345,7 +345,7 @@ function pintar() {
 
 function avisos(r) {
   const lista = [];
-  if (!estado.datos.juegos.length) lista.push('Falta el CSV de la query 1 (conocimiento)');
+  if (!estado.datos.resumenes.length) lista.push('Falta el CSV de la query 1 (conocimiento)');
   if (!estado.datos.companias.length) lista.push('Falta el CSV de la query 2 (compañías y premios)');
   if (r.periodo.parcial) lista.push('El periodo no está completo en los datos cargados');
   if (r.premios.sinValor.length) {

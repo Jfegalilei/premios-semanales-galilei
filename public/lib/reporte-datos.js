@@ -4,6 +4,7 @@
 import { leerEntregas, leerTabla } from './csv.js';
 import { tipoDeArchivo } from './consultas.js';
 import { agruparPorFamilia, formatearMonto, formatearNombre } from './normalizador.js';
+import { hoyLocal } from './periodos.js';
 
 // "2,026" -> 2026 · "12.5" -> 12.5. Analytics exporta con coma de miles.
 export function aNumero(texto) {
@@ -11,7 +12,7 @@ export function aNumero(texto) {
   return Number.isFinite(n) ? n : 0;
 }
 
-// Los filtros que antes iban en cada query y ahora se hacen aquí.
+// Filtros que se hacen aquí y no en la query, para que quepa en un mensaje.
 const NO_CUENTA = /tutorial|galimisi/i;
 const ENTREGADO = { NEQUI: ['GENERATED', 'REDEEMED'], otro: ['DELIVERED', 'PAID'] };
 
@@ -20,12 +21,13 @@ export function experienciaCuenta(nombre) {
 }
 
 // Igual que el CASE del export de la pieza semanal, para que el normalizador
-// reconozca los mismos textos ("Bono Nequi de 50000 pesos", "{quantity}"...).
+// reconozca los mismos textos ("Bono Nequi de 50000 pesos"...). El nombre del
+// premio trae la cantidad como `${quantity}` o `{quantity}`.
 export function textoDelPremio(nombre, tipo, cantidad) {
   const q = aNumero(cantidad);
   if (tipo === 'GALI_TICKETS') return `${q} GaliTickets`;
   if (tipo === 'NEQUI') return `Bono Nequi de ${q} pesos`;
-  return q > 0 ? nombre.replace('{quantity}', String(q)) : nombre;
+  return q > 0 ? nombre.replace(/\$?\{quantity\}/g, String(q)) : nombre;
 }
 
 // Analytics agrega el nombre por su cuenta junto a `player_id`.
@@ -38,35 +40,40 @@ function entregado(tipo, estado) {
 }
 
 // Lee un CSV y devuelve solo las partes de `datos` que trae, para no pisar las
-// del otro archivo: la query 1 trae juegos y fallos; la 2, compañías y premios;
-// el export de la pieza semanal, solo premios.
+// del otro archivo: la query 1 trae resúmenes, Top 3 y preguntas por periodo; la
+// 2, compañías y premios; el export de la pieza semanal, solo premios.
 export function interpretarArchivo(texto) {
   const { columnas, registros } = leerTabla(texto);
   const tipo = tipoDeArchivo(columnas);
-  if (!tipo) throw new Error('no se reconoce: no trae las columnas de la query del reporte');
+  if (!tipo) throw new Error('no se reconoce: no trae las columnas de las queries del reporte');
 
   if (tipo === 'premios') {
     return { premios: leerEntregas(texto).map((e) => ({ ...e, jugador: formatearNombre(e.jugador) })) };
   }
 
-  const datos = { juegos: [], fallos: [], companias: [], premios: [] };
+  const datos = { resumenes: [], tops: [], fallos: [], companias: [], premios: [] };
   for (const r of registros) {
     if (!r.compania) continue;
     const fecha = (r.fecha || '').slice(0, 10);
-    if (r.tipo === 'juego') {
-      datos.juegos.push({
-        compania: r.compania,
+    const periodo = { compania: r.compania, periodo: r.periodo, inicio: fecha };
+    if (r.tipo === 'resumen') {
+      datos.resumenes.push({
+        ...periodo,
+        activos: aNumero(r.n1),
+        juegos: aNumero(r.n2),
+        segundos: aNumero(r.n3),
+        precision: aNumero(r.n4),
+      });
+    } else if (r.tipo === 'top') {
+      datos.tops.push({
+        ...periodo,
         playerId: r.playerid,
-        jugador: formatearNombre(nombreDe(r)),
-        fecha,
+        nombre: formatearNombre(nombreDe(r)),
         juegos: aNumero(r.n1),
-        segundos: aNumero(r.n2),
-        sumaPrecision: aNumero(r.n3),
-        puntajeMax: aNumero(r.n4),
+        puntajeMax: aNumero(r.n2),
       });
     } else if (r.tipo === 'fallo') {
-      if (!r.t1 || !experienciaCuenta(r.t3)) continue;
-      datos.fallos.push({ compania: r.compania, fecha, pregunta: r.t1, respuesta: r.t2, fallos: aNumero(r.n1) });
+      if (r.t1) datos.fallos.push({ ...periodo, pregunta: r.t1, respuesta: r.t2, fallos: aNumero(r.n1) });
     } else if (r.tipo === 'compania') {
       datos.companias.push({
         compania: r.compania,
@@ -85,57 +92,37 @@ export function interpretarArchivo(texto) {
     }
   }
   const partes = {};
-  if (datos.juegos.length || datos.fallos.length) Object.assign(partes, { juegos: datos.juegos, fallos: datos.fallos });
+  if (datos.resumenes.length) Object.assign(partes, { resumenes: datos.resumenes, tops: datos.tops, fallos: datos.fallos });
   if (datos.companias.length || datos.premios.length) Object.assign(partes, { companias: datos.companias, premios: datos.premios });
   return partes;
 }
 
 const enPeriodo = (periodo) => (f) => f.fecha >= periodo.inicio && f.fecha <= periodo.fin;
+const delPeriodo = (compania, periodo) => (f) => (
+  f.compania === compania && f.periodo === periodo.tipo && f.inicio === periodo.inicio
+);
 
-// Página 1. `nombres` (playerId -> nombre) completa los que el export de juegos
-// no traiga: el de premios sí los tiene.
-export function conocimiento(datos, compania, periodo, nombres = new Map()) {
-  const juegos = datos.juegos.filter((f) => f.compania === compania).filter(enPeriodo(periodo));
+// Página 1. La query ya trae cada periodo agregado (semanas de lunes a domingo y
+// meses): aquí solo se busca la fila de la compañía y el periodo.
+export function conocimiento(datos, compania, periodo) {
+  const r = datos.resumenes.find(delPeriodo(compania, periodo));
   const info = datos.companias.find((c) => c.compania === compania);
-
-  const porJugador = new Map();
-  for (const f of juegos) {
-    const j = porJugador.get(f.playerId) || { playerId: f.playerId, nombre: '', juegos: 0, puntajeMax: 0 };
-    j.nombre = j.nombre || f.jugador;
-    j.juegos += f.juegos;
-    j.puntajeMax = Math.max(j.puntajeMax, f.puntajeMax);
-    porJugador.set(f.playerId, j);
-  }
-
-  const totalJuegos = juegos.reduce((s, f) => s + f.juegos, 0);
-  const sumaPrecision = juegos.reduce((s, f) => s + f.sumaPrecision, 0);
-  let precision = totalJuegos ? sumaPrecision / totalJuegos : null;
+  let precision = r && r.juegos ? r.precision : null;
   // La precisión puede venir de 0 a 1 o de 0 a 100.
   if (precision != null && precision <= 1) precision *= 100;
 
-  const top = [...porJugador.values()]
-    .sort((a, b) => b.puntajeMax - a.puntajeMax || b.juegos - a.juegos)
-    .slice(0, 3)
-    .map((j) => ({ ...j, nombre: j.nombre || nombres.get(j.playerId) || 'Jugador sin nombre' }));
-
-  const preguntas = new Map();
-  for (const f of datos.fallos.filter((x) => x.compania === compania).filter(enPeriodo(periodo))) {
-    const p = preguntas.get(f.pregunta) || { pregunta: f.pregunta, respuesta: f.respuesta, fallos: 0 };
-    p.fallos += f.fallos;
-    p.respuesta = p.respuesta || f.respuesta;
-    preguntas.set(f.pregunta, p);
-  }
-  const masFallada = [...preguntas.values()].sort((a, b) => b.fallos - a.fallos)[0] || null;
-
   return {
-    activos: porJugador.size,
+    activos: r ? r.activos : 0,
     totalJugadores: info ? info.totalJugadores : null,
     experiencias: info ? info.experiencias : [],
-    horas: juegos.reduce((s, f) => s + f.segundos, 0) / 3600,
-    juegos: totalJuegos,
+    horas: r ? r.segundos / 3600 : 0,
+    juegos: r ? r.juegos : 0,
     precision,
-    masFallada,
-    top,
+    masFallada: datos.fallos.find(delPeriodo(compania, periodo)) || null,
+    top: datos.tops.filter(delPeriodo(compania, periodo))
+      .sort((a, b) => b.puntajeMax - a.puntajeMax || b.juegos - a.juegos)
+      .slice(0, 3)
+      .map((j) => ({ ...j, nombre: j.nombre || 'Jugador sin nombre' })),
   };
 }
 
@@ -190,24 +177,22 @@ export function premiosEntregados(datos, compania, periodo, catalogo = []) {
   };
 }
 
-// playerId -> nombre, de cualquier export que traiga los dos.
-export function mapaDeNombres(datos) {
-  const mapa = new Map();
-  for (const f of [...datos.premios, ...datos.juegos]) {
-    if (f.playerId && f.jugador && !mapa.has(f.playerId)) mapa.set(f.playerId, f.jugador);
-  }
-  return mapa;
-}
-
-// Rango de fechas cubierto por los exports con fecha.
+// Rango de fechas cubierto por los exports. Los resúmenes llegan hasta el día en
+// que se corrió la query, que se toma como hoy. El arranque sale de los meses:
+// una semana puede empezar antes (la del 31 de agosto) sin que haya datos de ese
+// mes.
 export function rangoDeDatos(datos) {
-  const fechas = [...datos.juegos, ...datos.fallos, ...datos.premios]
-    .map((f) => f.fecha).filter(Boolean).sort();
-  return { min: fechas[0] || null, max: fechas[fechas.length - 1] || null };
+  const meses = datos.resumenes.filter((f) => f.periodo === 'mes').map((f) => f.inicio);
+  const fechas = [...meses, ...datos.premios.map((f) => f.fecha)]
+    .filter(Boolean).sort();
+  if (!fechas.length) return { min: null, max: null };
+  const hoy = hoyLocal();
+  const max = datos.resumenes.length && hoy > fechas[fechas.length - 1] ? hoy : fechas[fechas.length - 1];
+  return { min: fechas[0], max };
 }
 
-// Compañías con algo que contar (juegos o premios) en los exports.
+// Compañías con algo que contar (partidas o premios) en los exports.
 export function companiasConDatos(datos) {
-  return [...new Set([...datos.juegos, ...datos.premios].map((f) => f.compania))]
+  return [...new Set([...datos.resumenes, ...datos.premios].map((f) => f.compania))]
     .sort((a, b) => a.localeCompare(b, 'es'));
 }
