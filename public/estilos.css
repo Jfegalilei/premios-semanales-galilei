@@ -263,3 +263,60 @@ input[type="text"]:disabled {
   cursor: pointer;
   white-space: nowrap;
 }
+
+/* Las dos herramientas: pieza para usuarios (verde) y reporte para clientes
+   (azul). El acento de toda la interfaz cambia con la clase del body, así que se
+   sabe de un vistazo en cuál se está; las piezas que se exportan no cambian. */
+:root { --usuarios: #c9f73f; --clientes: #6ec8ff; }
+body.clientes { --lima: var(--clientes); }
+body.clientes .soltar.activa { background: #142029; }
+
+.barra { border-top: 4px solid var(--lima); }
+.modo {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--lima);
+  color: var(--tinta);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.selector {
+  display: inline-flex;
+  margin-left: auto;
+  padding: 4px;
+  gap: 4px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+}
+.selector a {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  padding: 7px 16px 7px 12px;
+  border-radius: 9px;
+  color: var(--tenue);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.25;
+}
+.selector a small { grid-column: 2; font-size: 11px; font-weight: 400; opacity: 0.8; }
+.selector a .punto { grid-row: span 2; width: 10px; height: 10px; border-radius: 50%; }
+.selector a .punto.usuarios { background: var(--usuarios); }
+.selector a .punto.clientes { background: var(--clientes); }
+.selector a:hover { color: var(--texto); background: var(--panel-alto); }
+.selector a[aria-current="page"] { background: var(--lima); color: var(--tinta); }
+.selector a[aria-current="page"] .punto { background: var(--tinta); }
+
+@media (max-width: 760px) {
+  .barra { flex-wrap: wrap; }
+  .selector { margin-left: 0; order: 3; width: 100%; }
+  .selector a { flex: 1; }
+}

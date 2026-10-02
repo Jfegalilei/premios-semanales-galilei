@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reporte para clientes · Generador</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Radio+Canada+Big:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="public/estilos.css">
+  <link rel="stylesheet" href="public/reporte.css">
+</head>
+<body class="clientes">
+  <header class="barra">
+    <div>
+      <span class="modo">Clientes</span>
+      <h1>Reporte para clientes</h1>
+      <p class="sub">PDF por compañía, por semana o por mes: conocimiento y premios entregados, en el formato de la pieza de celular</p>
+    </div>
+    <nav class="selector" aria-label="Cambiar de herramienta">
+      <a href="index.html"><span class="punto usuarios"></span>Para usuarios<small>Pieza semanal de premios</small></a>
+      <a href="reporte.html" aria-current="page"><span class="punto clientes"></span>Para clientes<small>Reporte en PDF</small></a>
+    </nav>
+    <label class="boton primario">
+      Cargar CSV
+      <input type="file" id="entradaCsv" accept=".csv,text/csv" multiple hidden>
+    </label>
+  </header>
+
+  <main>
+    <p id="avisoNube" class="aviso-nube" hidden></p>
+
+    <section id="panelConsultas" class="tarjeta">
+      <details open>
+        <summary>1 · Queries para Analytics Chat</summary>
+        <p class="tenue">
+          Dos queries cortas, siempre iguales: no hay que cambiarles nada. Traen todas las compañías
+          desde el primer día del mes anterior. Pega cada una en Analytics Chat y descarga los dos CSV.
+        </p>
+        <div id="listaConsultas" class="consultas"></div>
+      </details>
+    </section>
+
+    <section id="zonaVacia" class="soltar">
+      <p><strong>2 · Suelta aquí los dos CSV</strong> (juntos o de a uno)</p>
+      <p class="tenue">Se leen en tu navegador y no se suben a ningún lado.</p>
+      <p><button type="button" id="botonEjemplo" class="enlace">Ver ejemplo con datos inventados</button></p>
+      <div id="estadoArchivos" class="archivos"></div>
+    </section>
+
+    <section id="panelTrabajo" class="trabajo oculto">
+      <aside class="tarjeta lateral">
+        <h2>Compañías</h2>
+        <ul id="listaCompanias" class="companias"></ul>
+      </aside>
+
+      <div class="tarjeta principal">
+        <div class="controles">
+          <label>
+            <span>Periodo</span>
+            <select id="campoPeriodo"></select>
+          </label>
+          <label>
+            <span>Nombre del cliente</span>
+            <input type="text" id="campoCliente" autocomplete="off">
+          </label>
+          <div class="acciones">
+            <button type="button" id="botonExportarTodo" class="boton"
+              title="Un PDF por compañía con actividad en este periodo, en un ZIP">Exportar todo (ZIP)</button>
+            <button type="button" id="botonDescargar" class="boton primario">Descargar PDF</button>
+          </div>
+        </div>
+
+        <div id="vistaHojas" class="vista carrusel"></div>
+        <p id="avisoReporte" class="tenue"></p>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="module" src="public/reporte.js"></script>
+</body>
+</html>

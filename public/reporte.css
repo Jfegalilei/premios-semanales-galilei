@@ -1,0 +1,32 @@
+/* Reporte para clientes. La interfaz reutiliza `estilos.css` (la vista previa usa
+   la misma fila de diapositivas que la pieza de celular); aquí van sus piezas propias. */
+
+
+/* Queries */
+#panelConsultas summary {
+  cursor: pointer; font-size: 13px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--tenue); list-style: none;
+}
+#panelConsultas summary::-webkit-details-marker { display: none; }
+#panelConsultas summary::before { content: "+ "; color: var(--lima); }
+#panelConsultas details[open] summary::before { content: "− "; }
+.consulta {
+  background: var(--panel-alto); border: 1px solid var(--borde); border-radius: 10px;
+  padding: 12px 14px; display: grid; gap: 8px; align-content: start; min-width: 0;
+}
+.consulta header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.consulta h3 { margin: 0; font-size: 14px; }
+.consulta pre {
+  margin: 0; max-height: 260px; overflow: auto; background: var(--fondo);
+  border: 1px solid var(--borde); border-radius: 7px; padding: 8px 10px;
+  font: 11px/1.45 ui-monospace, Consolas, monospace; color: var(--tenue); white-space: pre;
+}
+.consulta .boton { padding: 5px 12px; font-size: 12px; }
+
+/* Estado de los cuatro archivos */
+.archivos { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
+.archivos span {
+  border: 1px solid var(--borde); border-radius: 999px; padding: 4px 12px; font-size: 12px; color: var(--tenue);
+}
+.archivos span.listo { border-color: var(--lima); color: var(--lima); }
+.soltar.compacta { padding: 22px 24px; }

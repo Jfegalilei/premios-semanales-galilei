@@ -55,6 +55,11 @@ const D = {
 
   titulo: { x: 100, y: 225, w: 684, fuente: 100, min: 62, interlinea: 0.94 },
 
+  // Línea verde bajo el título, cuando la pieza la lleva (el costo total en el
+  // reporte para clientes). Para hacerle sitio antes de las tarjetas, el título
+  // arranca en `titulo` en vez de 100: a dos líneas termina en ~375.
+  subtitulo: { fuente: 56, min: 34, hueco: 14, titulo: 80 },
+
   // Personaje: caja fija, espejado y recortado como en el diseño (las manos se
   // cortan justo donde arranca la retícula).
   personaje: { x: 611, y: 140, w: 422, h: 323, sobrealto: 1.2731, margen: 12 },
@@ -331,7 +336,7 @@ function ganadoresDe(grupos) {
  * @param {HTMLCanvasElement} canvas
  */
 export function dibujarDiapositiva(canvas, {
-  kicker, logoCliente, titulo, etiqueta, logo, diapositiva, personaje, fondo, trofeo,
+  kicker, logoCliente, titulo, subtitulo, etiqueta, logo, diapositiva, personaje, fondo, trofeo,
 }) {
   const { escala } = CARRUSEL;
   canvas.width = ANCHO * escala;
@@ -348,10 +353,10 @@ export function dibujarDiapositiva(canvas, {
   pintarFondo(ctx, fondo);
 
   if (plantilla.cabecera === 'centrada') {
-    cabeceraCentrada(ctx, { kicker, logoCliente, titulo, etiqueta, logo });
+    cabeceraCentrada(ctx, { kicker, logoCliente, titulo, subtitulo, etiqueta, logo });
   } else {
     cabecera(ctx, {
-      kicker, logoCliente, titulo, etiqueta, logo, personaje, trofeo, tarjetas: plantilla.tarjetas,
+      kicker, logoCliente, titulo, subtitulo, etiqueta, logo, personaje, trofeo, tarjetas: plantilla.tarjetas,
     });
   }
 
@@ -364,7 +369,8 @@ export function dibujarDiapositiva(canvas, {
   // Los dedos de una pose que agarra van POR ENCIMA de las tarjetas.
   if (plantilla.cabecera !== 'centrada') dibujarDedos(ctx, personaje, plantilla.tarjetas);
 
-  dibujarGanadores(ctx, cajaGanadores(plantilla), diapositiva.ganadores || []);
+  // Sin premios (el reporte para clientes dibuja la hoja igual) no hay ganadores.
+  if (diapositiva.grupos.length) dibujarGanadores(ctx, cajaGanadores(plantilla), diapositiva.ganadores || []);
 
   if (diapositiva.partes > 1) dibujarPaginas(ctx, diapositiva.parte, diapositiva.partes);
 
@@ -415,7 +421,7 @@ function dibujarPaginas(ctx, parte, partes) {
 // Foto del escenario a sangre, el degradado negro que sube desde el pie y un velo
 // plano encima. Sin foto queda el degradado de marca, para que la pieza no salga
 // en negro si el asset no cargó.
-function pintarFondo(ctx, fondo) {
+export function pintarFondo(ctx, fondo) {
   if (fondo && fondo.complete && fondo.naturalWidth) {
     const escala = Math.max(ANCHO / fondo.naturalWidth, ALTO / fondo.naturalHeight);
     const w = fondo.naturalWidth * escala;
@@ -480,18 +486,23 @@ function filaCliente(ctx, kicker, logo, logoCliente) {
 // El orden importa y es el del diseño: chip, personaje, título, fila del cliente y
 // trofeo encima de todo. Que el título tape al personaje y no al revés es lo que
 // lo mantiene legible cuando toca una pose ancha, que llega a solaparlo.
-function cabecera(ctx, { kicker, logoCliente, titulo, etiqueta, logo, personaje, trofeo, tarjetas }) {
+export function cabecera(ctx, {
+  kicker, logoCliente, titulo, subtitulo, etiqueta, logo, personaje, trofeo, tarjetas,
+}) {
   if (etiqueta) dibujarChip(ctx, etiqueta, D.chip.x + D.chip.w / 2, D.chip.y + D.chip.h / 2);
 
   dibujarPersonaje(ctx, personaje, tarjetas);
 
-  const { tam, lineas } = tituloQueCabe(ctx, titulo, D.titulo.w);
+  const { tam, lineas } = tituloQueCabe(ctx, titulo, D.titulo.w, subtitulo ? D.subtitulo.titulo : D.titulo.fuente);
   ctx.fillStyle = ESTILO.blanco;
   ctx.font = fuenteT(700, tam);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
   const alto = tam * D.titulo.interlinea;
   lineas.forEach((linea, i) => ctx.fillText(linea, D.titulo.x, D.titulo.y + alto * (i + 0.5)));
+  if (subtitulo) {
+    pintarSubtitulo(ctx, subtitulo, D.titulo.x, D.titulo.y + alto * lineas.length + D.subtitulo.hueco, D.titulo.w, 'left');
+  }
 
   filaCliente(ctx, kicker, logo, logoCliente);
   dibujarTrofeo(ctx, trofeo);
@@ -499,7 +510,7 @@ function cabecera(ctx, { kicker, logoCliente, titulo, etiqueta, logo, personaje,
 
 // Variante de siete premios: chip centrado montado sobre un título de una línea,
 // ambos centrados en la pieza.
-function cabeceraCentrada(ctx, { kicker, logoCliente, titulo, etiqueta, logo }) {
+function cabeceraCentrada(ctx, { kicker, logoCliente, titulo, subtitulo, etiqueta, logo }) {
   filaCliente(ctx, kicker, logo, logoCliente);
 
   const { ancho, solape } = D.centrada;
@@ -524,6 +535,29 @@ function cabeceraCentrada(ctx, { kicker, logoCliente, titulo, etiqueta, logo }) 
   ctx.textAlign = 'center';
   ctx.fillText(recortar(ctx, titulo, ancho), ANCHO / 2, y + (tam * D.titulo.interlinea) / 2);
   ctx.textAlign = 'left';
+  if (subtitulo) {
+    // Más chico que en la cabecera normal: la de siete tiene poco aire antes
+    // de las tarjetas.
+    const alto = tam * D.titulo.interlinea;
+    pintarSubtitulo(ctx, subtitulo, ANCHO / 2, y + alto + D.subtitulo.hueco / 2, ancho, 'center', 0.75);
+  }
+}
+
+// La línea verde bajo el título. Baja de tamaño antes que recortarse.
+function pintarSubtitulo(ctx, texto, x, arriba, ancho, alinear, factor = 1) {
+  const s = D.subtitulo;
+  let tam = s.fuente * factor;
+  ctx.save();
+  ctx.font = fuenteT(700, tam);
+  while (tam > s.min * factor && ctx.measureText(texto).width > ancho) {
+    tam -= 2;
+    ctx.font = fuenteT(700, tam);
+  }
+  ctx.fillStyle = ESTILO.g500;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = alinear;
+  ctx.fillText(recortar(ctx, texto, ancho), x, arriba);
+  ctx.restore();
 }
 
 function dibujarChip(ctx, texto, cx, cy) {
@@ -546,8 +580,8 @@ function dibujarChip(ctx, texto, cx, cy) {
 
 // El título del diseño ocupa dos líneas. Se parte por palabras y, si con dos no
 // basta, baja de tamaño antes que recortarse.
-function tituloQueCabe(ctx, texto, ancho) {
-  let tam = D.titulo.fuente;
+function tituloQueCabe(ctx, texto, ancho, inicio = D.titulo.fuente) {
+  let tam = inicio;
   while (tam > D.titulo.min) {
     ctx.font = fuenteT(700, tam);
     const lineas = envolver(ctx, texto, ancho, 2);
@@ -750,18 +784,8 @@ function escalaNombres(plantilla) {
 function dibujarTarjeta(ctx, caja, grupo, escala = 1) {
   const { x, y, w, h } = caja;
   const radio = caja.radio ?? D.tarjeta.radio;
-  const [bajo, alta] = D.tarjeta.luz;
 
-  // Cristal: franja de luz de abajo hacia arriba y un filo blanco.
-  const luz = ctx.createLinearGradient(x, y + h, x, y);
-  luz.addColorStop(0, `rgba(255, 255, 255, ${bajo})`);
-  luz.addColorStop(1, `rgba(255, 255, 255, ${alta})`);
-  redondeado(ctx, x, y, w, h, radio);
-  ctx.fillStyle = luz;
-  ctx.fill();
-  ctx.strokeStyle = ESTILO.blanco;
-  ctx.lineWidth = caja.borde ?? D.tarjeta.borde;
-  ctx.stroke();
+  cristal(ctx, x, y, w, h, radio, caja.borde);
 
   const [padX, hueco, padAbajo] = caja.producto;
   const n = caja.nombre;
@@ -802,6 +826,22 @@ function dibujarTarjeta(ctx, caja, grupo, escala = 1) {
   }
 
   contadorSobreProducto(ctx, grupo, producto(ctx, grupo, [x + padX, arriba, w - padX * 2, alto]), caja, escala);
+}
+
+// Cristal de las tarjetas: franja de luz de abajo hacia arriba y un filo blanco.
+export function cristal(ctx, x, y, w, h, radio = D.tarjeta.radio, borde = D.tarjeta.borde) {
+  const [bajo, alta] = D.tarjeta.luz;
+  const luz = ctx.createLinearGradient(x, y + h, x, y);
+  luz.addColorStop(0, `rgba(255, 255, 255, ${bajo})`);
+  luz.addColorStop(1, `rgba(255, 255, 255, ${alta})`);
+  ctx.save();
+  redondeado(ctx, x, y, w, h, radio);
+  ctx.fillStyle = luz;
+  ctx.fill();
+  ctx.strokeStyle = ESTILO.blanco;
+  ctx.lineWidth = borde ?? D.tarjeta.borde;
+  ctx.stroke();
+  ctx.restore();
 }
 
 // Reparte las pastillas de montos en renglones de `ancho` (con `ancho` 0, una por
@@ -1198,19 +1238,9 @@ function medirConColumnas(ctx, caja, nombres, columnas) {
   return minimo;
 }
 
-// Caja oscura con «Ganadores» y la lista a varias columnas. El alto lo pone
-// `medirGanadores`; lo que aun así no cabe se resume en «+N ganadores más!».
-function dibujarGanadores(ctx, caja, nombres) {
-  const { x, y, w } = caja;
-  const g = D.ganadores;
-
-  // Primero se mide, después se pinta: el alto de la caja SALE del contenido, no
-  // al revés. Así el aire entre el texto y el borde es `padY` en todas las
-  // plantillas, en vez de depender de cuánto se haya estirado el recuadro.
-  if (caja.nombreCorto) nombres = nombres.map(nombreCorto);
-  const medida = medirGanadores(ctx, caja, nombres);
-  const h = caja.lado ? caja.h : medida.alto;
-
+// Caja oscura de los ganadores (también la usa la hoja de conocimiento del
+// reporte para clientes).
+export function cajaOscura(ctx, x, y, w, h) {
   // El diseño la oscurece con un degradado a 156,77° en modo `multiply`. Con
   // `source-over` la caja quedaba bastante más clara: muestreando el render de
   // Figma, el fondo baja a un factor de 0,57-0,71, y eso solo lo da el multiply.
@@ -1237,17 +1267,33 @@ function dibujarGanadores(ctx, caja, nombres) {
   oscuro.addColorStop(1, `rgba(${mezcla(10, 199)}, ${mezcla(11, 204)}, ${mezcla(12, 212)}, ${(0.56 * (1 - fuera)).toFixed(4)})`);
 
   ctx.save();
-  redondeado(ctx, x, y, w, h, g.radio);
+  redondeado(ctx, x, y, w, h, D.ganadores.radio);
   ctx.clip();
   ctx.globalCompositeOperation = 'multiply';
   ctx.fillStyle = oscuro;
   ctx.fillRect(x, y, w, h);
   ctx.restore();
 
-  redondeado(ctx, x, y, w, h, g.radio);
+  redondeado(ctx, x, y, w, h, D.ganadores.radio);
   ctx.strokeStyle = ESTILO.neutral05;
-  ctx.lineWidth = g.borde;
+  ctx.lineWidth = D.ganadores.borde;
   ctx.stroke();
+}
+
+// Caja oscura con «Ganadores» y la lista a varias columnas. El alto lo pone
+// `medirGanadores`; lo que aun así no cabe se resume en «+N ganadores más!».
+function dibujarGanadores(ctx, caja, nombres) {
+  const { x, y, w } = caja;
+  const g = D.ganadores;
+
+  // Primero se mide, después se pinta: el alto de la caja SALE del contenido, no
+  // al revés. Así el aire entre el texto y el borde es `padY` en todas las
+  // plantillas, en vez de depender de cuánto se haya estirado el recuadro.
+  if (caja.nombreCorto) nombres = nombres.map(nombreCorto);
+  const medida = medirGanadores(ctx, caja, nombres);
+  const h = caja.lado ? caja.h : medida.alto;
+
+  cajaOscura(ctx, x, y, w, h);
 
   const {
     usadas, interlinea, anchoColumna, columnas, lista, resto, tam, tituloTam, altoTitulo,

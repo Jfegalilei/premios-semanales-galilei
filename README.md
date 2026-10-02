@@ -13,6 +13,8 @@ en las imágenes de premios de cada compañía.
 
 Web: <https://jfegalilei.github.io/premios-semanales-galilei/>
 
+Al lado vive el **reporte para clientes** (`reporte.html`): ver [abajo](#reporte-para-clientes).
+
 ## Cómo funciona
 
 - La página es **estática** (GitHub Pages). El CSV se lee en el navegador y **no se sube a
@@ -57,6 +59,7 @@ lo editado desde la web.
 | Ruta | Qué es |
 |---|---|
 | `index.html` | La página. |
+| `reporte.html` | El reporte para clientes (PDF). Su lógica está en `public/reporte.js` y `public/lib/reporte-*.js`. |
 | `server.js` | Servidor estático para probar en local. |
 | `herramientas/vista-celular.html` | Banco de pruebas: dibuja las plantillas de celular con premios y ganadores de mentira, sin CSV ni Firestore. Acepta `?n=`, `?ancho=`, `?ganadores=`, `?fondo=` y `?personaje=`. |
 | `marca/` | `logo-galilei.png`, exportado a 4x del propio Figma. |
@@ -388,6 +391,66 @@ Tanto la descarga como el guardado usan **`toBlob`, que es asíncrono**, y la im
 en crudo al servidor (`POST /api/pieza?nombre=…`). Con `toDataURL` —síncrono, y encima
 inflando a base64— la pestaña se quedaba congelada mientras comprimía. Ahora guardar la
 pieza más grande tarda unos 5 segundos y la interfaz sigue viva.
+
+## Reporte para clientes
+
+`reporte.html` arma, para cada compañía, un **PDF con hojas de celular** (1080 × 1792, el mismo
+formato que la pieza semanal) por semana (lunes a domingo) o por mes:
+
+1. **Conocimiento** (`public/lib/hoja-conocimiento.js`): jugadores activos X/Y, juegos,
+   precisión, qué se capacita, pregunta más fallada con su respuesta correcta y Top 3. Bajo el
+   título, en verde, las horas capacitadas.
+2. **Premios entregados**: la misma pieza de la semanal (`dibujarDiapositiva`), con el **costo
+   total** en verde bajo el título. Con más de siete premios se parte en varias páginas, igual
+   que la semanal.
+
+Las dos hojas comparten las piezas de `carrusel.js` (escenario, Gali, chip con las fechas,
+tarjetas de cristal con `cristal()` y la caja oscura de ganadores con `cajaOscura()`), así que un
+cambio de estilo en la semanal se ve también aquí. La página 1 no lleva el trofeo: es de los
+premios y chocaba con el título.
+
+### Los datos
+
+Salen de **dos queries cortas** (`public/lib/consultas.js`), que la página muestra con botón
+«Copiar»: la 1 trae conocimiento (juegos y preguntas falladas) y la 2 compañías y premios. Iban
+en una sola, pero Analytics Chat corta el mensaje hacia los 1.900 caracteres; cada una mide unos
+1.150. No llevan parámetros: traen todas las compañías desde el primer día del mes anterior, así
+que se pegan siempre igual y con una tanda salen todas las semanas y meses. Cada fila lleva un
+`tipo` —`juego`, `fallo`, `compania` o `premio`— y columnas genéricas `n1`–`n4` / `t1`–`t3`
+(el detalle está en el comentario de `consultas.js`). Los dos CSV se sueltan juntos o de a uno;
+cada uno reemplaza solo su parte.
+
+Lo que se puede filtrar en el navegador se filtra allá (`reporte-datos.js`), para que la query
+sea corta: las experiencias Tutorial y GaliMisión, el estado de las entregas (Nequi
+`GENERATED`/`REDEEMED`, el resto `DELIVERED`/`PAID`), los GaliTickets y el armado del nombre del
+premio. En SQL quedan solo `is_dummy`, `is_stealth`, `experience.active` y la fecha.
+
+Los juegos llegan agregados por jugador y día, que basta para recomponer exacto cualquier
+periodo: precisión = Σ precisión / Σ juegos. Las fechas pasan a hora de Colombia restando 5 h. Si
+la precisión viene de 0 a 1 se pasa a porcentaje. También se acepta el export de la pieza semanal,
+que reemplaza solo los premios.
+
+**Ver ejemplo** (o `reporte.html?demo`) carga datos inventados de «Cliente Demo»
+(`public/lib/reporte-demo.js`) para ver las hojas sin CSV.
+
+**A verificar con el primer export real:** el nombre del jugador se pide como `a.name` de
+`actor`.
+
+### El costo
+
+Mismo agrupado que la pieza semanal (`agruparPorFamilia` + biblioteca de Firestore), sin
+GaliTickets ni lo marcado con `ignorar`. Bonos (`desglose: por-monto`): suma el monto de cada
+entrega. Premios físicos: `valor` de la biblioteca × entregas. Los que no tienen valor salen como
+«Sin valor», no suman, y la hoja lo dice bajo el total; se corrigen en la Biblioteca de premios.
+
+### El PDF
+
+Cada hoja se dibuja en canvas a escala 2 y entra al PDF como JPEG con jsPDF, una página de
+1080 × 1792 por hoja (~1,3 MB un reporte de dos páginas). «Exportar todo (ZIP)» baja un PDF por
+compañía con actividad en el periodo elegido.
+
+`grupos.js` (armado de cada premio para la pieza) e `imagenes.js` (carga y medición de recortes
+y poses) salieron de `app.js` para que los usen las dos páginas.
 
 ## Pendientes
 

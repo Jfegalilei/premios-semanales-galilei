@@ -24,7 +24,7 @@ const TIPOS = {
 };
 
 // Solo esto es servible. Deja fuera el CSV de insights (trae nombres reales) y salidas/.
-const PUBLICAS = ['index.html', 'public', 'marca', 'Assets', 'premios', 'herramientas', 'catalogo.json', 'personajes.json'];
+const PUBLICAS = ['index.html', 'reporte.html', 'public', 'marca', 'Assets', 'premios', 'herramientas', 'catalogo.json', 'personajes.json'];
 
 const existe = async (p) => access(p).then(() => true, () => false);
 

@@ -10,12 +10,17 @@
   <!-- Rutas relativas: en GitHub Pages la página vive en /premios-semanales-galilei/. -->
   <link rel="stylesheet" href="public/estilos.css">
 </head>
-<body>
+<body class="usuarios">
   <header class="barra">
     <div>
+      <span class="modo">Usuarios</span>
       <h1>Premios entregados</h1>
       <p class="sub">Generador de la pieza semanal por compañía · vertical para celular, con todos los premios juntos</p>
     </div>
+    <nav class="selector" aria-label="Cambiar de herramienta">
+      <a href="index.html" aria-current="page"><span class="punto usuarios"></span>Para usuarios<small>Pieza semanal de premios</small></a>
+      <a href="reporte.html"><span class="punto clientes"></span>Para clientes<small>Reporte en PDF</small></a>
+    </nav>
     <label class="boton primario">
       Cargar CSV
       <input type="file" id="entradaCsv" accept=".csv,text/csv" hidden>

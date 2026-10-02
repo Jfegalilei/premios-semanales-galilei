@@ -93,3 +93,17 @@ function normalizarClave(h) {
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '');
 }
+
+// Lector genérico para los exports del reporte de clientes: cada fila como objeto
+// con las claves del encabezado ya normalizadas (`Player id` -> `playerid`).
+export function leerTabla(texto) {
+  const filas = parsearCSV(texto);
+  if (!filas.length) throw new Error('El archivo está vacío');
+  const columnas = filas[0].map((h) => normalizarClave(h));
+  const registros = filas.slice(1).map((f) => Object.fromEntries(
+    columnas.map((c, i) => [c, (f[i] || '').trim()]),
+  ));
+  return { columnas, registros };
+}
+
+export { normalizarClave };
