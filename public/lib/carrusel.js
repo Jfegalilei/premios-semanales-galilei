@@ -499,9 +499,11 @@ export function cabecera(ctx, {
   dibujarPersonaje(ctx, personaje, tarjetas);
 
   const inicio = subtitulo ? D.subtitulo.titulo : D.titulo.fuente;
+  // Sin personaje, el título puede ocupar todo el ancho.
+  const anchoTitulo = personaje ? D.titulo.w : ANCHO - D.titulo.x * 2;
   const { tam, lineas } = tituloCompleto
-    ? tituloEntero(ctx, titulo, D.titulo.w, inicio, D.titulo.altoMax - (subtitulo ? D.subtitulo.fuente + D.subtitulo.hueco : 0))
-    : tituloQueCabe(ctx, titulo, D.titulo.w, inicio);
+    ? tituloEntero(ctx, titulo, anchoTitulo, inicio, D.titulo.altoMax - (subtitulo ? D.subtitulo.fuente + D.subtitulo.hueco : 0))
+    : tituloQueCabe(ctx, titulo, anchoTitulo, inicio);
   ctx.fillStyle = ESTILO.blanco;
   ctx.font = fuenteT(700, tam);
   ctx.textBaseline = 'middle';
@@ -509,7 +511,7 @@ export function cabecera(ctx, {
   const alto = tam * D.titulo.interlinea;
   lineas.forEach((linea, i) => ctx.fillText(linea, D.titulo.x, D.titulo.y + alto * (i + 0.5)));
   if (subtitulo) {
-    pintarSubtitulo(ctx, subtitulo, D.titulo.x, D.titulo.y + alto * lineas.length + D.subtitulo.hueco, D.titulo.w, 'left');
+    pintarSubtitulo(ctx, subtitulo, D.titulo.x, D.titulo.y + alto * lineas.length + D.subtitulo.hueco, anchoTitulo, 'left');
   }
 
   filaCliente(ctx, kicker, logo, logoCliente);

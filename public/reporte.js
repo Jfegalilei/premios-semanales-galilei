@@ -292,7 +292,8 @@ function dibujarHojas(compania, lienzos) {
     titulo: `Reporte ${r.cliente}`,
     tituloCompleto: true,
     subtitulo: r.conocimiento.juegos ? '' : 'Sin partidas en este periodo',
-    personaje: elegir(estado.personajes, 0),
+    // Sin Gali: el título largo se le montaba encima y no se leía.
+    personaje: null,
     fondo: elegir(estado.fondos, 'fondo-0'),
     // El trofeo es de los premios; aquí chocaría con el título.
     trofeo: null,
