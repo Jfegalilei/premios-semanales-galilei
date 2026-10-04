@@ -34,6 +34,20 @@ const H = {
 const fT = (peso, tam) => `${peso} ${tam}px ${ESTILO.fuenteTitulo}`;
 const fG = (peso, tam) => `${peso} ${tam}px ${ESTILO.fuenteGanadores}`;
 const entero = (n) => Math.round(n).toLocaleString('es-CO');
+const horas = (n) => (n < 10 ? n.toLocaleString('es-CO', { maximumFractionDigits: 1 }) : entero(n));
+
+// Las de cristal solas se pierden sobre los escenarios claros: aquí llevan
+// debajo un velo oscuro para que el texto blanco se lea.
+const VELO = 'rgba(10, 14, 28, 0.62)';
+
+function tarjeta(ctx, c) {
+  ctx.save();
+  redondeado(ctx, c.x, c.y, c.w, c.h, c.radio);
+  ctx.fillStyle = VELO;
+  ctx.fill();
+  ctx.restore();
+  cristal(ctx, c.x, c.y, c.w, c.h, c.radio);
+}
 
 /**
  * @param {HTMLCanvasElement} canvas
@@ -57,6 +71,7 @@ export function dibujarConocimiento(canvas, op) {
   cabecera(ctx, { ...op, tarjetas: Object.values(cajas).filter(Boolean) });
 
   tarjetaActivos(ctx, cajas.activos, d);
+  tarjetaValor(ctx, cajas.horas, 'Horas capacitadas', d.juegos ? horas(d.horas) : '—');
   tarjetaValor(ctx, cajas.juegos, 'Juegos', d.juegos ? entero(d.juegos) : '—');
   tarjetaValor(ctx, cajas.precision, 'Precisión', d.precision == null ? '—' : `${Math.round(d.precision)}%`, true);
   if (cajas.temas) tarjetaTemas(ctx, cajas.temas, d.experiencias);
@@ -74,14 +89,15 @@ export function dibujarConocimiento(canvas, op) {
 // sus tres filas, la pregunta cede líneas.
 function repartir(ctx, d) {
   const { x, w, hueco } = H;
-  const mitad = (w - hueco) / 2;
+  const tercio = (w - hueco * 2) / 3;
   let y = H.arriba;
   const cajas = {};
 
   cajas.activos = { x, y, w, h: H.activos.h, radio: H.radio };
   y += H.activos.h + hueco;
-  cajas.juegos = { x, y, w: mitad, h: H.par.h, radio: H.radio };
-  cajas.precision = { x: x + mitad + hueco, y, w: mitad, h: H.par.h, radio: H.radio };
+  cajas.horas = { x, y, w: tercio, h: H.par.h, radio: H.radio };
+  cajas.juegos = { x: x + tercio + hueco, y, w: tercio, h: H.par.h, radio: H.radio };
+  cajas.precision = { x: x + (tercio + hueco) * 2, y, w: tercio, h: H.par.h, radio: H.radio };
   y += H.par.h + hueco;
 
   if (d.experiencias.length) {
@@ -118,7 +134,7 @@ function etiqueta(ctx, texto, x, y) {
 }
 
 function tarjetaActivos(ctx, c, d) {
-  cristal(ctx, c.x, c.y, c.w, c.h, c.radio);
+  tarjeta(ctx, c);
   const x = c.x + H.pad;
   etiqueta(ctx, 'Jugadores activos', x, c.y + 34);
 
@@ -160,10 +176,16 @@ function tarjetaActivos(ctx, c, d) {
 }
 
 function tarjetaValor(ctx, c, titulo, valor, verde = false) {
-  cristal(ctx, c.x, c.y, c.w, c.h, c.radio);
+  tarjeta(ctx, c);
   etiqueta(ctx, titulo, c.x + H.pad, c.y + 34);
   ctx.fillStyle = verde ? ESTILO.g500 : ESTILO.blanco;
-  ctx.font = fT(700, 84);
+  // Tres por fila: la cifra baja de tamaño antes que salirse.
+  let tam = 84;
+  ctx.font = fT(700, tam);
+  while (tam > 48 && ctx.measureText(valor).width > c.w - H.pad * 2) {
+    tam -= 4;
+    ctx.font = fT(700, tam);
+  }
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
   ctx.fillText(valor, c.x + H.pad, c.y + c.h - 28);
@@ -191,7 +213,7 @@ function filasDePills(ctx, textos, ancho) {
 
 function tarjetaTemas(ctx, c) {
   const p = H.pill;
-  cristal(ctx, c.x, c.y, c.w, c.h, c.radio);
+  tarjeta(ctx, c);
   etiqueta(ctx, 'Qué se capacita', c.x + H.pad, c.y + 34);
   let y = c.y + 34 + H.etiqueta + 22;
   ctx.font = fG(600, p.fuente);
@@ -254,7 +276,7 @@ function tarjetaPregunta(ctx, c, m) {
   const q = H.pregunta;
   const r = H.respuesta;
   const { pregunta, respuesta, altoRespuesta } = c.medida;
-  cristal(ctx, c.x, c.y, c.w, c.h, c.radio);
+  tarjeta(ctx, c);
   const x = c.x + H.pad;
   etiqueta(ctx, 'Pregunta más fallada', x, c.y + 34);
   ctx.fillStyle = ESTILO.neutral07;

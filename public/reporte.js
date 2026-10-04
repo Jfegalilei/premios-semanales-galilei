@@ -263,13 +263,6 @@ function reporteDe(compania) {
 
 const enPesos = (n) => `$${Math.round(n).toLocaleString('es-CO')}`;
 
-function horasTexto(horas) {
-  const n = horas < 10
-    ? horas.toLocaleString('es-CO', { maximumFractionDigits: 1 })
-    : Math.round(horas).toLocaleString('es-CO');
-  return `${n} ${n === '1' ? 'hora capacitada' : 'horas capacitadas'}`;
-}
-
 // Las hojas del reporte, dibujadas en `lienzos`. La 1 es el conocimiento; de la
 // 2 en adelante, la pieza de premios de la semanal con el costo total bajo el
 // título. Con más de siete premios esa pieza se parte en varias páginas, igual
@@ -296,11 +289,11 @@ function dibujarHojas(compania, lienzos) {
 
   dibujarConocimiento(lienzos[0], {
     ...comunes,
-    titulo: 'Conocimiento',
-    subtitulo: r.conocimiento.juegos ? horasTexto(r.conocimiento.horas) : 'Sin partidas en este periodo',
+    titulo: `Reporte ${r.cliente}`,
+    subtitulo: r.conocimiento.juegos ? '' : 'Sin partidas en este periodo',
     personaje: elegir(estado.personajes, 0),
     fondo: elegir(estado.fondos, 'fondo-0'),
-    // El trofeo es de los premios; aquí chocaría con «Conocimiento».
+    // El trofeo es de los premios; aquí chocaría con el título.
     trofeo: null,
     datos: r.conocimiento,
   });

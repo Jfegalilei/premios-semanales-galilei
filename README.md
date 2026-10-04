@@ -397,9 +397,10 @@ pieza más grande tarda unos 5 segundos y la interfaz sigue viva.
 `reporte.html` arma, para cada compañía, un **PDF con hojas de celular** (1080 × 1792, el mismo
 formato que la pieza semanal) por semana (lunes a domingo) o por mes:
 
-1. **Conocimiento** (`public/lib/hoja-conocimiento.js`): jugadores activos X/Y, juegos,
-   precisión, qué se capacita, pregunta más fallada con su respuesta correcta y Top 3. Bajo el
-   título, en verde, las horas capacitadas.
+1. **Reporte *Compañía*** (`public/lib/hoja-conocimiento.js`): jugadores activos X/Y, horas
+   capacitadas, juegos, precisión, qué se capacita, pregunta más fallada con su respuesta correcta
+   y Top 3. Las tarjetas llevan un velo oscuro bajo el cristal para que se lean sobre cualquier
+   escenario.
 2. **Premios entregados**: la misma pieza de la semanal (`dibujarDiapositiva`), con el **costo
    total** en verde bajo el título. Con más de siete premios se parte en varias páginas, igual
    que la semanal.
