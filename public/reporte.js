@@ -290,6 +290,7 @@ function dibujarHojas(compania, lienzos) {
   dibujarConocimiento(lienzos[0], {
     ...comunes,
     titulo: `Reporte ${r.cliente}`,
+    tituloCompleto: true,
     subtitulo: r.conocimiento.juegos ? '' : 'Sin partidas en este periodo',
     personaje: elegir(estado.personajes, 0),
     fondo: elegir(estado.fondos, 'fondo-0'),

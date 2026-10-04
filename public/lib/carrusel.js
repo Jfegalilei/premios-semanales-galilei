@@ -53,7 +53,7 @@ const D = {
     giro: -3.78, fuente: 33.597, padX: 21, padY: 10, radio: 25, interlinea: 1.11,
   },
 
-  titulo: { x: 100, y: 225, w: 684, fuente: 100, min: 62, interlinea: 0.94 },
+  titulo: { x: 100, y: 225, w: 684, fuente: 100, min: 62, interlinea: 0.94, altoMax: 222, minEntero: 40 },
 
   // Línea verde bajo el título, cuando la pieza la lleva (el costo total en el
   // reporte para clientes). Para hacerle sitio antes de las tarjetas, el título
@@ -462,10 +462,15 @@ function filaCliente(ctx, kicker, logo, logoCliente) {
     contener(ctx, logoCliente, x, cy - alto / 2, anchoMax, alto, 'izquierda', 'centro');
   } else if (kicker) {
     ctx.fillStyle = ESTILO.neutral07;
-    ctx.font = fuenteG(500, D.kickerFuente);
+    // Un nombre largo baja de tamaño antes que recortarse.
+    const texto = kicker.toUpperCase();
+    const ancho = D.cabecera.ancho - D.logo.ancho - 40;
+    let tam = D.kickerFuente;
+    ctx.font = fuenteG(500, tam);
+    while (tam > 14 && ctx.measureText(texto).width > ancho) ctx.font = fuenteG(500, --tam);
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
-    ctx.fillText(recortar(ctx, kicker.toUpperCase(), D.cabecera.ancho - D.logo.ancho - 40), x, cy);
+    ctx.fillText(recortar(ctx, texto, ancho), x, cy);
   }
 
   if (logo && logo.complete && logo.naturalWidth) {
@@ -487,13 +492,16 @@ function filaCliente(ctx, kicker, logo, logoCliente) {
 // trofeo encima de todo. Que el título tape al personaje y no al revés es lo que
 // lo mantiene legible cuando toca una pose ancha, que llega a solaparlo.
 export function cabecera(ctx, {
-  kicker, logoCliente, titulo, subtitulo, etiqueta, logo, personaje, trofeo, tarjetas,
+  kicker, logoCliente, titulo, subtitulo, etiqueta, logo, personaje, trofeo, tarjetas, tituloCompleto,
 }) {
   if (etiqueta) dibujarChip(ctx, etiqueta, D.chip.x + D.chip.w / 2, D.chip.y + D.chip.h / 2);
 
   dibujarPersonaje(ctx, personaje, tarjetas);
 
-  const { tam, lineas } = tituloQueCabe(ctx, titulo, D.titulo.w, subtitulo ? D.subtitulo.titulo : D.titulo.fuente);
+  const inicio = subtitulo ? D.subtitulo.titulo : D.titulo.fuente;
+  const { tam, lineas } = tituloCompleto
+    ? tituloEntero(ctx, titulo, D.titulo.w, inicio, D.titulo.altoMax - (subtitulo ? D.subtitulo.fuente + D.subtitulo.hueco : 0))
+    : tituloQueCabe(ctx, titulo, D.titulo.w, inicio);
   ctx.fillStyle = ESTILO.blanco;
   ctx.font = fuenteT(700, tam);
   ctx.textBaseline = 'middle';
@@ -590,6 +598,23 @@ function tituloQueCabe(ctx, texto, ancho, inicio = D.titulo.fuente) {
   }
   ctx.font = fuenteT(700, tam);
   return { tam, lineas: envolver(ctx, texto, ancho, 2) };
+}
+
+// Para cuando el título no se puede recortar (el nombre del cliente en el
+// reporte): el tamaño más grande con el que cabe entero en hasta tres líneas y en
+// `altoMax` (hasta donde arrancan las tarjetas).
+function tituloEntero(ctx, texto, ancho, inicio, altoMax) {
+  const { interlinea, minEntero } = D.titulo;
+  const entero = String(texto || '').split(/\s+/).filter(Boolean).join(' ');
+  for (let tam = inicio; tam >= minEntero; tam -= 2) {
+    ctx.font = fuenteT(700, tam);
+    const lineas = envolver(ctx, texto, ancho, Infinity);
+    // `envolver` recorta la última si una palabra sola no cabe: eso no vale.
+    if (lineas.join(' ') === entero && lineas.length <= 3
+      && lineas.length * tam * interlinea <= altoMax) return { tam, lineas };
+  }
+  ctx.font = fuenteT(700, minEntero);
+  return { tam: minEntero, lineas: envolver(ctx, texto, ancho, Infinity) };
 }
 
 // Parte el texto en como mucho `maxLineas`; la última se recorta con puntos
