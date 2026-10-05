@@ -289,7 +289,8 @@ function dibujarHojas(compania, lienzos) {
 
   dibujarConocimiento(lienzos[0], {
     ...comunes,
-    titulo: `Reporte ${r.cliente}`,
+    // El nombre siempre en el renglón siguiente a «Reporte».
+    titulo: `Reporte\n${r.cliente}`,
     tituloCompleto: true,
     subtitulo: r.conocimiento.juegos ? '' : 'Sin partidas en este periodo',
     // Sin Gali: el título largo se le montaba encima y no se leía.

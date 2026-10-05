@@ -156,10 +156,6 @@ function tarjetaActivos(ctx, c, d) {
     ctx.fillStyle = ESTILO.g500;
     ctx.font = fT(700, 72);
     ctx.fillText(`${Math.round(parte * 100)}%`, c.x + c.w - H.pad, base);
-    ctx.fillStyle = ESTILO.neutral07;
-    ctx.font = fG(500, 22);
-    ctx.textBaseline = 'top';
-    ctx.fillText('jugó en el periodo', c.x + c.w - H.pad, c.y + 34);
     ctx.textAlign = 'left';
 
     const by = c.y + c.h - 34 - H.activos.barra;

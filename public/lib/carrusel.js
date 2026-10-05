@@ -603,20 +603,24 @@ function tituloQueCabe(ctx, texto, ancho, inicio = D.titulo.fuente) {
 }
 
 // Para cuando el título no se puede recortar (el nombre del cliente en el
-// reporte): el tamaño más grande con el que cabe entero en hasta tres líneas y en
-// `altoMax` (hasta donde arrancan las tarjetas).
+// reporte): el tamaño más grande con el que cabe entero en hasta cuatro líneas y
+// en `altoMax` (hasta donde arrancan las tarjetas). Un salto de línea en el texto
+// fuerza renglón nuevo.
 function tituloEntero(ctx, texto, ancho, inicio, altoMax) {
   const { interlinea, minEntero } = D.titulo;
-  const entero = String(texto || '').split(/\s+/).filter(Boolean).join(' ');
+  const partes = String(texto || '').split('\n')
+    .map((p) => p.split(/\s+/).filter(Boolean).join(' ')).filter(Boolean);
+  const partir = () => partes.map((p) => envolver(ctx, p, ancho, Infinity));
   for (let tam = inicio; tam >= minEntero; tam -= 2) {
     ctx.font = fuenteT(700, tam);
-    const lineas = envolver(ctx, texto, ancho, Infinity);
+    const bloques = partir();
+    const lineas = bloques.flat();
     // `envolver` recorta la última si una palabra sola no cabe: eso no vale.
-    if (lineas.join(' ') === entero && lineas.length <= 3
+    if (bloques.every((b, i) => b.join(' ') === partes[i]) && lineas.length <= 4
       && lineas.length * tam * interlinea <= altoMax) return { tam, lineas };
   }
   ctx.font = fuenteT(700, minEntero);
-  return { tam: minEntero, lineas: envolver(ctx, texto, ancho, Infinity) };
+  return { tam: minEntero, lineas: partir().flat() };
 }
 
 // Parte el texto en como mucho `maxLineas`; la última se recorta con puntos
