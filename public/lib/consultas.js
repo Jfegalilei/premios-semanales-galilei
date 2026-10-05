@@ -26,6 +26,13 @@
 // Para bajar el CSV completo hay que usar el «Export» del pie de la respuesta
 // (junto a «Save as report»): el de la barra de la tabla solo baja lo cargado.
 
+// Va delante de cada query al copiarla. Sin ella el chat a veces corre la query
+// y después otra «resumida» por su cuenta, y el Export baja esa (probado: una de
+// tres veces sin la instrucción; cinco de cinco bien con ella). Suma unos 170
+// caracteres: la query 1 queda en ~1.800, por debajo del corte de ~1.900.
+export const INSTRUCCION = 'Ejecuta este SQL exactamente como está, una sola vez, sin LIMIT ni cambios. '
+  + 'No corras otras consultas ni hagas resúmenes: responde solo con el número de filas.\n\n';
+
 export const CONSULTAS = [
   {
     id: 'conocimiento',

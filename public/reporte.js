@@ -1,7 +1,7 @@
 // Reporte para clientes: los CSV de las dos queries -> hojas de celular por
 // compañía y periodo -> PDF.
 
-import { CONSULTAS } from './lib/consultas.js';
+import { CONSULTAS, INSTRUCCION } from './lib/consultas.js';
 import { periodosEntre, diaMes } from './lib/periodos.js';
 import { csvDeEjemplo } from './lib/reporte-demo.js';
 import {
@@ -150,10 +150,10 @@ function pintarConsultas() {
       <header><h3></h3><button type="button" class="boton">Copiar</button></header>
       <pre></pre>`;
     caja.querySelector('h3').textContent = c.titulo;
-    caja.querySelector('pre').textContent = c.sql;
+    caja.querySelector('pre').textContent = INSTRUCCION + c.sql;
     const boton = caja.querySelector('button');
     boton.addEventListener('click', async () => {
-      await navigator.clipboard.writeText(c.sql);
+      await navigator.clipboard.writeText(INSTRUCCION + c.sql);
       boton.textContent = 'Copiada';
       setTimeout(() => { boton.textContent = 'Copiar'; }, 1500);
     });

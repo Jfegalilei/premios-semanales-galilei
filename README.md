@@ -425,6 +425,11 @@ el mensaje hacia los 1.900.
 2. **Compañías y premios**: jugadores activos y experiencias de cada compañía, y una fila por
    premio entregado (~1.300 en mes y medio).
 
+El botón «Copiar» pone delante de cada query una instrucción (`INSTRUCCION` en
+`public/lib/consultas.js`): que la corra tal cual, una sola vez, y no haga otras consultas. Sin ella
+el chat a veces corre después una consulta «resumida» por su cuenta y el Export baja esa en vez de
+la nuestra.
+
 Para bajar el CSV completo hay que usar el **«Export» del pie de la respuesta** (junto a «Save as
 report»), que baja `insights-export (N).csv`. El botón de exportar de la barra de la tabla solo
 baja las filas cargadas y se corta en 500.
