@@ -1,12 +1,12 @@
 // Página 1 del reporte para clientes: el conocimiento, en el mismo formato y con
 // las mismas piezas que la de premios (`carrusel.js`): escenario de fondo, Gali en
-// la cabecera, chip verde con las fechas, tarjetas de cristal y la caja oscura de
+// la cabecera, chip verde con las fechas, tarjetas oscuras y la caja oscura de
 // los ganadores, aquí con el Top 3.
 //
 // Geometría en unidades de 1080 x 1792, como el carrusel; el lienzo sale a
 // `CARRUSEL.escala`.
 
-import { CARRUSEL, pintarFondo, cabecera, cristal, cajaOscura } from './carrusel.js';
+import { CARRUSEL, pintarFondo, cabecera, cajaOscura } from './carrusel.js';
 import { redondeado, recortar } from './lienzo.js';
 import { ESTILO } from './plantillas.js';
 
@@ -19,12 +19,13 @@ const H = {
   hueco: 12,
   arriba: 463,   // donde arrancan las tarjetas del carrusel
   pie: 1736,     // donde termina la caja de ganadores más baja
-  pad: 44,
+  pad: 40,
   radio: 40,
-  etiqueta: 28,
+  etiqueta: 27,
+  eyebrow: { espacio: 3, interlinea: 1.3 },   // los títulos de cada dato, en verde: guían la lectura
   valor: 96,
-  activos: { h: 210, barra: 14 },
-  par: { h: 160 },
+  activos: { h: 228, barra: 14 },
+  par: { valor: 84, abajo: 28 },   // el alto sale del título (una o dos líneas)
   pill: { fuente: 26, padX: 20, alto: 50, hueco: 10 },
   pregunta: { fuente: 36, interlinea: 1.2, lineas: 3 },
   respuesta: { fuente: 30, interlinea: 1.3, lineas: 2, pad: 16, etiqueta: 20 },
@@ -34,19 +35,21 @@ const H = {
 const fT = (peso, tam) => `${peso} ${tam}px ${ESTILO.fuenteTitulo}`;
 const fG = (peso, tam) => `${peso} ${tam}px ${ESTILO.fuenteGanadores}`;
 const entero = (n) => Math.round(n).toLocaleString('es-CO');
+const TRIO = ['Horas capacitadas', 'Juegos', 'Precisión'];
 const horas = (n) => (n < 10 ? n.toLocaleString('es-CO', { maximumFractionDigits: 1 }) : entero(n));
 
-// Las de cristal solas se pierden sobre los escenarios claros: aquí llevan
-// debajo un velo oscuro para que el texto blanco se lea.
-const VELO = 'rgba(10, 14, 28, 0.62)';
-
+// Tarjetas oscuras casi opacas con un filo blanco tenue, como las de
+// galileilearning.com: el cristal claro se perdía sobre los escenarios y el
+// texto no se leía.
 function tarjeta(ctx, c) {
   ctx.save();
   redondeado(ctx, c.x, c.y, c.w, c.h, c.radio);
-  ctx.fillStyle = VELO;
+  ctx.fillStyle = 'rgba(17, 20, 25, 0.86)';
   ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
   ctx.restore();
-  cristal(ctx, c.x, c.y, c.w, c.h, c.radio);
 }
 
 /**
@@ -71,9 +74,9 @@ export function dibujarConocimiento(canvas, op) {
   cabecera(ctx, { ...op, tarjetas: Object.values(cajas).filter(Boolean) });
 
   tarjetaActivos(ctx, cajas.activos, d);
-  tarjetaValor(ctx, cajas.horas, 'Horas capacitadas', d.juegos ? horas(d.horas) : '—');
-  tarjetaValor(ctx, cajas.juegos, 'Juegos', d.juegos ? entero(d.juegos) : '—');
-  tarjetaValor(ctx, cajas.precision, 'Precisión', d.precision == null ? '—' : `${Math.round(d.precision)}%`, true);
+  tarjetaValor(ctx, cajas.horas, TRIO[0], d.juegos ? horas(d.horas) : '—');
+  tarjetaValor(ctx, cajas.juegos, TRIO[1], d.juegos ? entero(d.juegos) : '—');
+  tarjetaValor(ctx, cajas.precision, TRIO[2], d.precision == null ? '—' : `${Math.round(d.precision)}%`);
   if (cajas.temas) tarjetaTemas(ctx, cajas.temas, d.experiencias);
   if (cajas.pregunta) tarjetaPregunta(ctx, cajas.pregunta, d.masFallada);
   cajaTop(ctx, cajas.top, d.top);
@@ -95,14 +98,17 @@ function repartir(ctx, d) {
 
   cajas.activos = { x, y, w, h: H.activos.h, radio: H.radio };
   y += H.activos.h + hueco;
-  cajas.horas = { x, y, w: tercio, h: H.par.h, radio: H.radio };
-  cajas.juegos = { x: x + tercio + hueco, y, w: tercio, h: H.par.h, radio: H.radio };
-  cajas.precision = { x: x + (tercio + hueco) * 2, y, w: tercio, h: H.par.h, radio: H.radio };
-  y += H.par.h + hueco;
+  const titulos = titulosDelTrio(ctx, tercio - H.pad * 2);
+  const lineas = Math.max(...titulos.map((t) => t.length));
+  const hPar = 34 + altoEtiqueta(lineas) + 14 + H.par.valor * 0.75 + H.par.abajo;
+  ['horas', 'juegos', 'precision'].forEach((k, i) => {
+    cajas[k] = { x: x + (tercio + hueco) * i, y, w: tercio, h: hPar, radio: H.radio, titulo: titulos[i] };
+  });
+  y += hPar + hueco;
 
   if (d.experiencias.length) {
     const filas = filasDePills(ctx, d.experiencias, w - H.pad * 2);
-    const h = H.pad + H.etiqueta + 22 + filas.length * (H.pill.alto + H.pill.hueco) - H.pill.hueco + H.pad - 14;
+    const h = H.pad + altoEtiqueta() + 22 + filas.length * (H.pill.alto + H.pill.hueco) - H.pill.hueco + H.pad - 14;
     cajas.temas = { x, y, w, h, radio: H.radio, filas };
     y += h + hueco;
   }
@@ -125,12 +131,39 @@ function repartir(ctx, d) {
 
 /* ---------- tarjetas ---------- */
 
+// Alto de un título de `lineas` líneas.
+const altoEtiqueta = (lineas = 1) => lineas * H.etiqueta * H.eyebrow.interlinea;
+
+// Los títulos van como los «eyebrows» de galileilearning.com («NUESTRA
+// METODOLOGÍA» sobre cada sección): mayúsculas, espaciadas, en negrita y en
+// verde. La forma (mayúsculas con aire) los separa de todo lo demás, y el verde
+// queda casi solo para ellos: el resto de la hoja va en blanco y gris, como en
+// la web. Probado antes: texto verde normal (se mezclaba con cifras y pastillas
+// verdes), blanco (se confundía con las cifras) y chips verdes.
+function fuenteEtiqueta(ctx) {
+  ctx.font = fG(700, H.etiqueta);
+  ctx.letterSpacing = `${H.eyebrow.espacio}px`;
+}
+
 function etiqueta(ctx, texto, x, y) {
-  ctx.fillStyle = ESTILO.neutral07;
-  ctx.font = fG(500, H.etiqueta);
+  const lineas = (Array.isArray(texto) ? texto : [texto]).map((l) => l.toUpperCase());
+  ctx.save();
+  fuenteEtiqueta(ctx);
+  ctx.fillStyle = ESTILO.g500;
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
-  ctx.fillText(texto, x, y);
+  lineas.forEach((l, i) => ctx.fillText(l, x, y + i * H.etiqueta * H.eyebrow.interlinea));
+  ctx.restore();
+}
+
+// Los títulos de la fila de tres, partidos para que quepan sin achicarse
+// («Horas capacitadas» baja a dos líneas). Las cifras van alineadas abajo.
+function titulosDelTrio(ctx, ancho) {
+  ctx.save();
+  fuenteEtiqueta(ctx);
+  const titulos = TRIO.map((t) => envolver(ctx, t.toUpperCase(), ancho, 2));
+  ctx.restore();
+  return titulos;
 }
 
 function tarjetaActivos(ctx, c, d) {
@@ -141,7 +174,7 @@ function tarjetaActivos(ctx, c, d) {
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = ESTILO.blanco;
   ctx.font = fT(700, H.valor);
-  const base = c.y + 34 + H.etiqueta + 14 + H.valor * 0.78;
+  const base = c.y + 34 + altoEtiqueta() + 14 + H.valor * 0.78;
   const activos = entero(d.activos);
   ctx.fillText(activos, x, base);
   if (d.totalJugadores) {
@@ -151,9 +184,9 @@ function tarjetaActivos(ctx, c, d) {
     ctx.fillText(`/${entero(d.totalJugadores)}`, x + ancho + 6, base);
 
     const parte = Math.min(1, d.activos / d.totalJugadores);
-    // Porcentaje a la derecha, en verde, alineado con la cifra.
+    // Porcentaje a la derecha, alineado con la cifra.
     ctx.textAlign = 'right';
-    ctx.fillStyle = ESTILO.g500;
+    ctx.fillStyle = ESTILO.blanco;
     ctx.font = fT(700, 72);
     ctx.fillText(`${Math.round(parte * 100)}%`, c.x + c.w - H.pad, base);
     ctx.textAlign = 'left';
@@ -171,10 +204,10 @@ function tarjetaActivos(ctx, c, d) {
   }
 }
 
-function tarjetaValor(ctx, c, titulo, valor, verde = false) {
+function tarjetaValor(ctx, c, titulo, valor) {
   tarjeta(ctx, c);
-  etiqueta(ctx, titulo, c.x + H.pad, c.y + 34);
-  ctx.fillStyle = verde ? ESTILO.g500 : ESTILO.blanco;
+  etiqueta(ctx, c.titulo || titulo, c.x + H.pad, c.y + 34);
+  ctx.fillStyle = ESTILO.blanco;
   // Tres por fila: la cifra baja de tamaño antes que salirse.
   let tam = 84;
   ctx.font = fT(700, tam);
@@ -184,7 +217,7 @@ function tarjetaValor(ctx, c, titulo, valor, verde = false) {
   }
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
-  ctx.fillText(valor, c.x + H.pad, c.y + c.h - 28);
+  ctx.fillText(valor, c.x + H.pad, c.y + c.h - H.par.abajo);
 }
 
 function filasDePills(ctx, textos, ancho) {
@@ -211,7 +244,7 @@ function tarjetaTemas(ctx, c) {
   const p = H.pill;
   tarjeta(ctx, c);
   etiqueta(ctx, 'Qué se capacita', c.x + H.pad, c.y + 34);
-  let y = c.y + 34 + H.etiqueta + 22;
+  let y = c.y + 34 + altoEtiqueta() + 22;
   ctx.font = fG(600, p.fuente);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
@@ -219,7 +252,7 @@ function tarjetaTemas(ctx, c) {
     let x = c.x + H.pad;
     for (const pill of fila) {
       redondeado(ctx, x, y, pill.w, p.alto, p.alto / 2);
-      ctx.strokeStyle = ESTILO.g500;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.fillStyle = ESTILO.blanco;
@@ -256,14 +289,14 @@ function medirPregunta(ctx, m, ancho, lineasMax) {
   const q = H.pregunta;
   const r = H.respuesta;
   ctx.save();
-  ctx.font = fT(600, q.fuente);
+  ctx.font = fT(500, q.fuente);
   const pregunta = envolver(ctx, m.pregunta, ancho, lineasMax);
   ctx.font = fT(600, r.fuente);
   const respuesta = m.respuesta ? envolver(ctx, m.respuesta, ancho - r.pad * 2, r.lineas) : [];
   ctx.restore();
   const altoRespuesta = respuesta.length
     ? r.pad * 2 + r.etiqueta + 8 + respuesta.length * r.fuente * r.interlinea : 0;
-  const h = 34 + H.etiqueta + 16 + pregunta.length * q.fuente * q.interlinea
+  const h = 34 + altoEtiqueta() + 16 + pregunta.length * q.fuente * q.interlinea
     + (altoRespuesta ? 16 + altoRespuesta : 0) + 34;
   return { pregunta, respuesta, altoRespuesta, h };
 }
@@ -278,12 +311,14 @@ function tarjetaPregunta(ctx, c, m) {
   ctx.fillStyle = ESTILO.neutral07;
   ctx.font = fG(500, 24);
   ctx.textAlign = 'right';
-  ctx.fillText(`Fallada ${entero(m.fallos)} ${m.fallos === 1 ? 'vez' : 'veces'}`, c.x + c.w - H.pad, c.y + 36);
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`Fallada ${entero(m.fallos)} ${m.fallos === 1 ? 'vez' : 'veces'}`, c.x + c.w - H.pad, c.y + 34 + altoEtiqueta() / 2);
+  ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
 
-  let y = c.y + 34 + H.etiqueta + 16;
+  let y = c.y + 34 + altoEtiqueta() + 16;
   ctx.fillStyle = ESTILO.blanco;
-  ctx.font = fT(600, q.fuente);
+  ctx.font = fT(500, q.fuente);
   ctx.textBaseline = 'top';
   for (const linea of pregunta) {
     ctx.fillText(linea, x, y + (q.fuente * (q.interlinea - 1)) / 2);
@@ -293,13 +328,17 @@ function tarjetaPregunta(ctx, c, m) {
   if (altoRespuesta) {
     y += 16;
     const w = c.w - H.pad * 2;
-    ctx.fillStyle = 'rgba(179, 241, 49, 0.16)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
     redondeado(ctx, x, y, w, altoRespuesta, 20);
     ctx.fill();
+    ctx.save();
     ctx.fillStyle = ESTILO.g500;
-    ctx.font = fG(600, r.etiqueta);
+    ctx.font = fG(700, r.etiqueta);
+    ctx.letterSpacing = '2px';
     ctx.fillText('RESPUESTA CORRECTA', x + r.pad, y + r.pad);
+    ctx.restore();
     let ry = y + r.pad + r.etiqueta + 8;
+    ctx.fillStyle = ESTILO.blanco;
     ctx.font = fT(600, r.fuente);
     for (const linea of respuesta) {
       ctx.fillText(linea, x + r.pad, ry + (r.fuente * (r.interlinea - 1)) / 2);
@@ -312,11 +351,7 @@ function cajaTop(ctx, c, top) {
   const t = H.top;
   cajaOscura(ctx, c.x, c.y, c.w, c.h);
   const x = c.x + H.pad;
-  ctx.fillStyle = ESTILO.g500;
-  ctx.font = fT(700, t.titulo);
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'left';
-  ctx.fillText('Top 3 jugadores', x, c.y + t.padY);
+  etiqueta(ctx, 'Top 3 jugadores', x, c.y + t.padY);
 
   if (!top.length) {
     ctx.fillStyle = ESTILO.neutral07;
