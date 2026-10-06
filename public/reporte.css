@@ -120,7 +120,10 @@
    (heredaba los 12 px de la etiqueta), la miniatura con ancho propio y «Quitar»
    como acción secundaria discreta, no como enlace azul subrayado. */
 /* «Qué mostrar»: un interruptor por parte contratada. */
-.vistas { display: grid; gap: 5px; font-size: 12px; color: var(--tenue); min-width: 0; }
+.vistas {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin: 0 0 14px;
+  font-size: 12px; color: var(--tenue); min-width: 0;
+}
 .vistas .interruptores { display: flex; gap: 8px; flex-wrap: wrap; }
 .interruptor {
   display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px;
