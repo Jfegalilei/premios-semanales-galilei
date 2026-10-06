@@ -96,7 +96,7 @@ UNION ALL SELECT 'premio',co,(r.redeemed_at-INTERVAL '5 hours')::date,i,cp.quant
   },
   {
     id: 'reviews',
-    titulo: 'Query 3 · Reviews de Google',
+    titulo: 'Query 3 · Reseñas de Google',
     descripcion: 'Calificación en Google y, de lo que llegó por Galilei, las reviews, sus estrellas y el Top 3 de empleados.',
     sql: `WITH k AS(SELECT DATE_TRUNC('month',CURRENT_DATE-INTERVAL '1 month')+INTERVAL '5 hours' d),
 gl AS(SELECT g.google_location_id gi,c.name co,g.title ti FROM google_location g JOIN company c ON c.company_id=g.company_id WHERE g.is_enabled),

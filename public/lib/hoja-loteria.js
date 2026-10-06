@@ -169,7 +169,7 @@ function tarjetaLoteria(ctx, c, l, copa) {
     y += 56;
   }
 
-  // Quién ganó y de qué empresa, en dos líneas.
+  // Quién ganó y de qué empresa, en dos líneas; la empresa en verde.
   if (rifa.ganador) {
     y += 8;
     ctx.font = fG(500, 26);
@@ -181,8 +181,8 @@ function tarjetaLoteria(ctx, c, l, copa) {
     ctx.fillText(recortar(ctx, rifa.ganador.trim(), ancho), x2, y);
     y += 38;
     if (rifa.empresa) {
-      ctx.font = fG(500, 26);
-      ctx.fillStyle = ESTILO.neutral07;
+      ctx.font = fG(600, 26);
+      ctx.fillStyle = ESTILO.g500;
       ctx.fillText(recortar(ctx, rifa.empresa.trim(), ancho), x2, y);
       y += 34;
     }
@@ -214,7 +214,9 @@ function tarjetaLoteria(ctx, c, l, copa) {
   let yb = Math.max(y + 16, abajo - altoBloque);
   raya(ctx, x2, yb, derecha, yb);
   yb += 18;
-  etiqueta(ctx, `Clasificados en ${nombreMes(datos.mes)}${datos.enCurso ? ' (hasta hoy)' : ''}`, x2, yb, 0.8);
+  // Sin el mes: ya va en la cabecera de la tarjeta («Rifa de septiembre») y con
+  // él no cabía en la columna.
+  etiqueta(ctx, `Tus empleados clasificados${datos.enCurso ? ' (hasta hoy)' : ''}`, x2, yb, 0.8);
   yb += altoEtiqueta(1, 0.8) + 10;
   ctx.textBaseline = 'top';
   ctx.fillStyle = ESTILO.blanco;
@@ -224,7 +226,7 @@ function tarjetaLoteria(ctx, c, l, copa) {
   const anchoCifra = ctx.measureText(cifra).width;
   ctx.fillStyle = ESTILO.neutral07;
   ctx.font = fT(600, 32);
-  const [una, varias] = datos.unidad || ['jugador', 'jugadores'];
+  const [una, varias] = datos.unidad || ['empleado', 'empleados'];
   ctx.fillText(datos.clasificados === 1 ? una : varias, x2 + anchoCifra + 12, yb + 26);
   yb += 64 + 16;
   etiqueta(ctx, 'Para clasificar', x2, yb, 0.8);
@@ -386,7 +388,7 @@ function tarjetaRifa(ctx, c, rifa, foto, trofeo) {
   ctx.textBaseline = 'alphabetic';
   ctx.fillText(recortar(ctx, premio, ancho), x, yPremio);
 
-  // «Ganó Nombre · Empresa»: el nombre en blanco, lo demás en gris.
+  // «Ganó Nombre · Empresa»: el nombre en blanco, la empresa en verde.
   if (rifa.ganador) {
     ctx.font = fG(500, 30);
     ctx.fillStyle = ESTILO.neutral07;
@@ -398,8 +400,8 @@ function tarjetaRifa(ctx, c, rifa, foto, trofeo) {
     ctx.fillText(nombre, cx, yGanador + 30);
     cx += ctx.measureText(nombre).width;
     if (rifa.empresa) {
-      ctx.font = fG(500, 30);
-      ctx.fillStyle = ESTILO.neutral07;
+      ctx.font = fG(600, 30);
+      ctx.fillStyle = ESTILO.g500;
       ctx.fillText(recortar(ctx, ` · ${rifa.empresa.trim()}`, x + ancho - cx), cx, yGanador + 30);
     }
   }
@@ -413,7 +415,7 @@ function tarjetaRifa(ctx, c, rifa, foto, trofeo) {
 function tarjetaClasificados(ctx, c, d, mes) {
   tarjeta(ctx, c);
   const x = c.x + H.pad;
-  etiqueta(ctx, `Clasificados en ${mes}${d.enCurso ? ' (hasta hoy)' : ''}`, x, c.y + 34);
+  etiqueta(ctx, `Tus empleados clasificados en ${mes}${d.enCurso ? ' (hasta hoy)' : ''}`, x, c.y + 34);
 
   const base = c.y + 34 + altoEtiqueta() + 14 + 96 * 0.78;
   ctx.textAlign = 'left';
@@ -425,7 +427,7 @@ function tarjetaClasificados(ctx, c, d, mes) {
   const anchoCifra = ctx.measureText(cifra).width;
   ctx.fillStyle = ESTILO.neutral07;
   ctx.font = fT(600, 44);
-  const [una, varias] = d.unidad || ['jugador', 'jugadores'];
+  const [una, varias] = d.unidad || ['empleado', 'empleados'];
   ctx.fillText(d.clasificados === 1 ? una : varias, x + anchoCifra + 16, base);
 
   if (d.pie) {

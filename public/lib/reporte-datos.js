@@ -35,6 +35,15 @@ function nombreDe(r) {
   return r.playername || r.player || r.jugador || r.nombre || '';
 }
 
+// Teams y sedes que no salen nunca en el reporte (ni en el Top 3 de sedes ni en
+// premios por sede):
+//   GaliNew…        los de Galilei para la gente nueva (GaliNew, GaliNewMedellin).
+//                   Solo los que empiezan así: «New York Freelance» (Majority)
+//                   es un team de verdad.
+//   Administra…     administradores y administrativos (también «ONB N1
+//                   Administrativos»).
+export const fueraDelReporte = (nombre) => /^\s*gali\s*new|administra/i.test(nombre || '');
+
 function entregado(tipo, estado) {
   return (ENTREGADO[tipo] || ENTREGADO.otro).includes(estado);
 }
@@ -83,6 +92,7 @@ export function interpretarTabla({ registros }) {
         preguntas: aNumero(r.n4),
       });
     } else if (r.tipo === 'loc') {
+      if (fueraDelReporte(r.t1)) continue;
       datos.locations.push({
         ...periodo,
         nombre: (r.t1 || '').trim(),
@@ -131,7 +141,8 @@ export function interpretarTabla({ registros }) {
         playerId: r.playerid,
         fecha,
         // Sede y nivel del team de quien lo reclamó (query 2 desde que los trae).
-        sede: (r.t4 || '').trim(),
+        // Su premio cuenta en el total, pero sin fila de sede.
+        sede: fueraDelReporte(r.t4) ? '' : (r.t4 || '').trim(),
         nivel: r.n2 === '' || r.n2 == null ? null : aNumero(r.n2),
         conSede: 't4' in r,
       });

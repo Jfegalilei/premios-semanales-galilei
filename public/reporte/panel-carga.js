@@ -54,7 +54,7 @@ export function pintarArchivos(contenedor, datos, { ejemplo = false, subidas = {
     ejemplo && [true, 'Ejemplo con datos inventados'],
     [datos.resumenes.length > 0, `Query 1 · Conocimiento${cuando('conocimiento')}`],
     [datos.companias.length > 0, `Query 2 · Compañías y premios${cuando('premios')}`],
-    [datos.fichas.length > 0, `Query 3 · Reviews${cuando('reviews')}`],
+    [datos.fichas.length > 0, `Query 3 · Reseñas${cuando('reviews')}`],
     [datos.autecos.length > 0, `Query 4 · Lotería Auteco${cuando('auteco')}`],
   ].filter(Boolean);
   contenedor.replaceChildren(...pastillas.map(([listo, texto]) => {

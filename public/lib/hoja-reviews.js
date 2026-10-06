@@ -126,7 +126,7 @@ function tarjetaGalilei(ctx, c, d) {
   const cuando = d.periodo.tipo === 'mes'
     ? `en ${MESES_LARGOS[Number(d.periodo.inicio.slice(5, 7)) - 1]}`
     : 'esta semana';
-  etiqueta(ctx, `Reviews gracias a Galilei ${cuando}`, x, c.y + 34);
+  etiqueta(ctx, `Reseñas gracias a Galilei ${cuando}`, x, c.y + 34);
 
   const base = c.y + 34 + altoEtiqueta() + 14 + t.cifra * 0.78;
   ctx.textBaseline = 'alphabetic';
@@ -138,7 +138,7 @@ function tarjetaGalilei(ctx, c, d) {
   const anchoCifra = ctx.measureText(cifra).width;
   ctx.fillStyle = ESTILO.neutral07;
   ctx.font = fT(600, 44);
-  ctx.fillText(d.porGali === 1 ? 'review' : 'reviews', x + anchoCifra + 16, base);
+  ctx.fillText(d.porGali === 1 ? 'reseña' : 'reseñas', x + anchoCifra + 16, base);
 
   // Promedio de estrellas de esas reviews, alineado con la cifra.
   if (d.promedioGali != null) {
@@ -160,7 +160,7 @@ function tarjetaEstrellas(ctx, c, d) {
   const b = R.barras;
   tarjeta(ctx, c);
   const x = c.x + H.pad;
-  etiqueta(ctx, 'Reviews por estrellas', x, c.y + 34);
+  etiqueta(ctx, 'Reseñas por estrellas', x, c.y + 34);
 
   const total = d.estrellas.reduce((s, e) => s + e.reviews, 0);
   const xBarra = x + b.etiqueta;
@@ -203,14 +203,14 @@ function cajaTop(ctx, c, top, huboReviews) {
   const t = H.top;
   cajaOscura(ctx, c.x, c.y, c.w, c.h);
   const x = c.x + H.pad;
-  etiqueta(ctx, 'Top 3 empleados con más reviews 5★', x, c.y + t.padY);
+  etiqueta(ctx, 'Top 3 empleados con más reseñas 5★', x, c.y + t.padY);
 
   if (!top.length) {
     ctx.fillStyle = ESTILO.neutral07;
     ctx.font = fG(500, 28);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText(huboReviews ? 'Ninguna review de 5 estrellas llegó por Galilei en este periodo' : 'Ninguna review llegó por Galilei en este periodo',
+    ctx.fillText(huboReviews ? 'Ninguna reseña de 5 estrellas llegó por Galilei en este periodo' : 'Ninguna reseña llegó por Galilei en este periodo',
       x, c.y + t.padY + t.titulo * 1.4 + 20);
     return;
   }
@@ -234,7 +234,7 @@ function cajaTop(ctx, c, top, huboReviews) {
     ctx.textAlign = 'right';
     ctx.fillStyle = ESTILO.neutral07;
     ctx.font = fG(500, t.dato);
-    const dato = `${entero(e.reviews)} ${e.reviews === 1 ? 'review' : 'reviews'}`;
+    const dato = `${entero(e.reviews)} ${e.reviews === 1 ? 'reseña' : 'reseñas'}`;
     const anchoDato = ctx.measureText(dato).width;
     ctx.fillText(dato, derecha, cy + 1);
 

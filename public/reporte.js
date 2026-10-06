@@ -11,7 +11,7 @@
 //   reporte/exportar.js     PDF, ZIP y descarga
 //   lib/reporte-datos.js    de los CSV a las cifras de cada hoja
 
-import { periodosEntre, hoyLocal } from './lib/periodos.js';
+import { periodosEntre, hoyLocal, inicioMesAnterior } from './lib/periodos.js';
 import { csvDeEjemplo } from './lib/reporte-demo.js';
 import {
   interpretarArchivo, interpretarTabla, conocimiento, premiosEntregados, reviews, loteria, loteriaAuteco, loteriaResenas, servicios,
@@ -62,6 +62,8 @@ const estado = {
   logos: new Map(),     // slug de la compañía -> logo en blanco (HTMLImageElement)
   logo: null,
   trofeo: null,
+  galiPreocupado: null, // Gali de la hoja que pide las metas
+  medallas: null,       // las medallas de Bronce, Oro y Plata, de la misma hoja
   personajes: [],
   fondos: [],
   listo: false,         // imágenes y fuentes cargadas: antes no se dibuja
@@ -118,9 +120,11 @@ async function init() {
   const caras = ['500', '600', '700'].flatMap((p) => [
     `${p} 32px ${ESTILO.fuenteTitulo}`, `${p} 24px ${ESTILO.fuenteGanadores}`,
   ]);
-  [estado.logo, estado.trofeo, estado.personajes, estado.fondos] = await Promise.all([
+  [estado.logo, estado.trofeo, estado.galiPreocupado, estado.medallas, estado.personajes, estado.fondos] = await Promise.all([
     cargarImagen('marca/logo-galilei.png').catch(() => null),
     cargarImagen('Assets/Iconos/trofeo.webp').catch(() => null),
+    cargarPersonaje('Assets/Personajes/Gali-preocupado.webp'),
+    cargarImagen('Assets/Iconos/medallas.webp').catch(() => null),
     listaDePersonajes(),
     listaDeFondos(),
     ...caras.map((c) => document.fonts.load(c).catch(() => {})),
@@ -128,6 +132,16 @@ async function init() {
   estado.listo = true;
   if (new URLSearchParams(location.search).has('demo')) cargarEjemplo();
   else pintar();
+}
+
+// Una pose suelta (fuera de `lista.json`, que es el sorteo de las demás hojas),
+// medida como las de la lista para que la cabecera la sepa colocar.
+async function cargarPersonaje(ruta) {
+  const img = await cargarImagen(ruta).catch(() => null);
+  if (!img) return null;
+  img.nombre = ruta;
+  img.caja = cajaDelProducto(perfilesOpacos(img).columnas);
+  return img;
 }
 
 function errorNube(err) {
@@ -308,10 +322,12 @@ function alCambiarDatos() {
       || estado.companias[0] || null;
   }
 
-  // Por defecto, la última semana completa con datos (o la más reciente si no hay).
+  // Por defecto, el mes anterior (el último mes completo); si no está, la última
+  // semana completa con datos (o la más reciente si no hay).
   const conDatos = periodosConDatos();
   const previo = estado.periodos.find((p) => p.id === estado.periodo?.id);
   estado.periodo = previo
+    || estado.periodos.find((p) => p.tipo === 'mes' && p.inicio === inicioMesAnterior())
     || estado.periodos.find((p) => p.tipo === 'semana' && !p.parcial && conDatos.has(clavePeriodo(p.tipo, p.inicio)))
     || estado.periodos.find((p) => p.tipo === 'semana' && !p.parcial)
     || estado.periodos[0] || null;
@@ -364,7 +380,7 @@ function resumenDe(r) {
   if (!tuvoActividad(r)) return 'sin actividad';
   return [
     ...(r.servicios.training ? [`${r.conocimiento.juegos} juegos`, `${r.premios.entregas} premios`] : []),
-    ...(r.reviews ? [`${r.reviews.porGali} reviews por Galilei`] : []),
+    ...(r.reviews ? [`${r.reviews.porGali} reseñas por Galilei`] : []),
   ].join(' · ');
 }
 
@@ -377,7 +393,7 @@ const tuvoActividad = (r) => Boolean(r.conocimiento.juegos || r.premios.entregas
 // «Qué mostrar»); es lo que usan las hojas.
 function reporteDe(compania) {
   const { datos, periodo } = estado;
-  const contratado = servicios(datos, compania);
+  const contratado = contratadoDe(compania);
   const visible = vistas.visibles(compania, contratado);
   return {
     compania,
@@ -388,9 +404,20 @@ function reporteDe(compania) {
     conocimiento: conocimiento(datos, compania, periodo),
     premios: premiosEntregados(datos, compania, periodo, estado.catalogo),
     reviews: visible.reviews ? reviews(datos, compania, periodo) : null,
+    // La hoja que pide las metas: no lleva datos, solo el mes del reporte.
+    metas: visible.metas ? { mes: periodo.inicio } : null,
     loterias: loteriasDe(compania, visible),
     logoCliente: estado.logos.get(slug(compania)) || null,
   };
+}
+
+// Lo que tiene la compañía, con la hoja que pide las metas: va con training,
+// solo en el reporte mensual y menos en Auteco. En una semana no sale ni la
+// hoja ni su interruptor.
+const SIN_METAS = /auteco/i;
+function contratadoDe(compania) {
+  const s = servicios(estado.datos, compania);
+  return { ...s, metas: s.training && estado.periodo?.tipo === 'mes' && !SIN_METAS.test(compania) };
 }
 
 // Las loterías que salen en el PDF, en orden: la de training (Galilei, o la
@@ -414,6 +441,8 @@ function loteriasDe(compania, contratado) {
 const recursos = () => ({
   logo: estado.logo,
   trofeo: estado.trofeo,
+  galiPreocupado: estado.galiPreocupado,
+  medallas: estado.medallas,
   personajes: estado.personajes,
   fondos: estado.fondos,
   catalogo: estado.catalogo,
@@ -433,7 +462,7 @@ function pintar() {
   const campo = $('#campoCliente');
   if (document.activeElement !== campo && campo.value !== escrito) campo.value = escrito;
   campo.placeholder = compania;
-  vistas.pintar(compania, servicios(estado.datos, compania));
+  vistas.pintar(compania, contratadoDe(compania));
   logoCliente.pintar(compania, estado.logos.get(slug(compania)) || null);
 
   const r = reporteDe(compania);
@@ -462,10 +491,10 @@ function pintarAvisos(lista) {
 // problema: solo dice qué hojas salen y por qué.
 function avisos(r) {
   const lista = [];
-  const contratado = [r.contratado.training && 'training', r.contratado.reviews && 'reviews'].filter(Boolean);
+  const contratado = [r.contratado.training && 'training', r.contratado.reviews && 'reseñas'].filter(Boolean);
   lista.push({
     info: true,
-    texto: contratado.length ? `Contratado: ${contratado.join(' y ')}` : 'Sin training ni reviews en los datos cargados',
+    texto: contratado.length ? `Contratado: ${contratado.join(' y ')}` : 'Sin training ni reseñas en los datos cargados',
   });
   const apagado = [
     r.contratado.training && !r.servicios.training && 'training',
@@ -491,12 +520,13 @@ function avisos(r) {
     else if (!rifa.live) lista.push({ texto: `Falta el link del live de la ${nombre} de ${rifa.mes} (paso 3)` });
     if (l.tipo === 'auteco' && !l.cargada) lista.push({ texto: 'Falta el CSV de la query 4 (Lotería Auteco)' });
   }
+  if (r.metas) lista.push({ info: true, texto: 'Con la hoja que le pide al cliente sus metas' });
   if (!r.logoCliente) lista.push({ texto: 'Sin logo del cliente: súbelo junto al nombre (sale en lugar del nombre escrito)' });
   if (r.servicios.training && r.premios.sinSedes) {
     lista.push({ texto: 'El CSV de la query 2 es de una versión vieja (sus premios no traen sede): vuelve a correrla y súbela' });
   }
   if (r.reviews?.estrellasViejas) {
-    lista.push({ texto: 'El CSV de la query 3 es de una versión vieja (sus estrellas cuentan todas las reviews): vuelve a correrla y súbela' });
+    lista.push({ texto: 'El CSV de la query 3 es de una versión vieja (sus estrellas cuentan todas las reseñas): vuelve a correrla y súbela' });
   }
   if (r.servicios.training && r.premios.sinValor.length) {
     lista.push({

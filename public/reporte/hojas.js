@@ -13,10 +13,13 @@
 //               reseñas), todas en una hoja: la de Reseñas con clasificados y
 //               la de Galilei con clasificados solo si tiene training (si no,
 //               solo el premio).
+//   metas    -> la última, solo si se prende en «Qué mostrar» (reporte mensual,
+//               con training y menos Auteco): le pide al cliente sus metas
 
 import { diaMes } from '../lib/periodos.js';
 import { dibujarConocimiento } from '../lib/hoja-conocimiento.js';
 import { dibujarReviews } from '../lib/hoja-reviews.js';
+import { dibujarMetas, tituloMetas } from '../lib/hoja-metas.js';
 import { dibujarLoteria, dibujarLoterias } from '../lib/hoja-loteria.js';
 import { armarCarrusel, dibujarDiapositiva } from '../lib/carrusel.js';
 import { personajeDe, azarConSemilla } from '../lib/lienzo.js';
@@ -79,10 +82,10 @@ const HOJAS = [
     tipo: 'reviews',
     aplica: (r) => Boolean(r.reviews),
     paginas: (r, { comunes, elegir, recursos }) => [{
-      nombre: 'Reviews',
+      nombre: 'Reseñas',
       dibujar: (lienzo, fondo) => dibujarReviews(lienzo, {
         ...comunes,
-        titulo: 'Reviews\nen Google',
+        titulo: 'Reseñas\nen Google',
         personaje: elegir(recursos.personajes, 'reviews'),
         fondo,
         trofeo: null,
@@ -96,6 +99,25 @@ const HOJAS = [
     paginas: (r, contexto) => [r.loterias.length === 1
       ? paginaLoteria(r.loterias[0], contexto)
       : paginaLoterias(r, contexto)],
+  },
+  {
+    tipo: 'metas',
+    aplica: (r) => Boolean(r.metas),
+    paginas: (r, { comunes, recursos }) => [{
+      nombre: 'Metas',
+      dibujar: (lienzo, fondo) => dibujarMetas(lienzo, {
+        ...comunes,
+        titulo: tituloMetas(r.metas.mes),
+        // El mes siempre en el renglón siguiente: en una línea chocaba con Gali.
+        tituloCompleto: true,
+        // Gali preocupado, asomado tras la tarjeta: se nota que falta algo sin
+        // regañar a nadie.
+        personaje: recursos.galiPreocupado,
+        medallas: recursos.medallas,
+        fondo,
+        trofeo: null,
+      }),
+    }],
   },
 ];
 

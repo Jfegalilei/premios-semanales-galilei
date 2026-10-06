@@ -466,5 +466,5 @@ function cajaTop(ctx, c, top, huboPartidas) {
   });
 }
 
-// Piezas que reusa la hoja de reviews (`hoja-reviews.js`).
-export { H, tarjeta, etiqueta, altoEtiqueta, entero, fT, fG };
+// Piezas que reusan las hojas de reviews y de metas.
+export { H, tarjeta, etiqueta, altoEtiqueta, entero, envolver, fT, fG };

@@ -129,6 +129,7 @@
 }
 .interruptor input { accent-color: var(--lima); width: 16px; height: 16px; margin: 0; cursor: pointer; }
 .interruptor:has(input:checked) { border-color: var(--lima); color: var(--texto); }
+.interruptor:has(input:disabled) { opacity: 0.45; cursor: not-allowed; }
 .controles .logo-cliente { min-width: 0; }
 @media (min-width: 560px) {
   /* Miniatura, botón y «Quitar» no caben en una columna de 215 px: dos columnas. */

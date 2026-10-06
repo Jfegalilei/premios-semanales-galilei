@@ -408,7 +408,7 @@ solo reviews y lotería.
 2. **Premios entregados**: la misma pieza de la semanal (`dibujarDiapositiva`), con la **inversión
    total** en verde bajo el título. Con más de siete premios se parte en varias páginas, igual
    que la semanal.
-3. **Reviews en Google** (`public/lib/hoja-reviews.js`), solo para las compañías con ficha de
+3. **Reseñas en Google** (`public/lib/hoja-reviews.js`), solo para las compañías con ficha de
    Google activa: calificación general en Google al cierre del periodo y, de las
    reviews, **solo lo que llegó por Galilei** (tarjeta o juego, `review_click`): cuántas y su
    promedio, sus estrellas y el Top 3 de empleados con más reviews de 5 estrellas. No sale nada
@@ -426,7 +426,20 @@ solo reviews y lotería.
    Galilei. Las compañías con reseñas reciben las dos loterías en **una sola hoja**
    («GaliLoterías», `dibujarLoterias`), con un solo botón al live: con training, las dos
    con clasificados y requisito; con solo reseñas, la de Reseñas completa y la de Galilei solo
-   con el premio y el ganador.
+   con el premio y el ganador. Los clasificados salen como «Tus empleados clasificados» y la
+   empresa del ganador va en verde.
+6. **Metas** (`public/lib/hoja-metas.js`), la última: una hoja sin datos que le pide al cliente
+   que nos mande las metas de sus sedes, con Gali preocupado
+   (`Assets/Personajes/Gali-preocupado.webp`, fuera de `lista.json` para que no salga en otras
+   hojas) y las medallas de los niveles (`Assets/Iconos/medallas.webp`, del Figma, nodo
+   `11563:38042`, con el fondo quitado). Viene apagada: se prende por compañía en «Qué mostrar»
+   («Pedir metas»), y solo en el reporte mensual, para las compañías con training menos Auteco.
+
+En el PDF se dice «reseñas», no «reviews».
+
+Los teams **GaliNew…** (los de Galilei para la gente nueva) y los de **administradores o
+administrativos** no salen nunca: ni en el Top 3 de sedes ni en premios por sede
+(`fueraDelReporte` en `reporte-datos.js`). Sus premios sí cuentan en el total.
 
 Las hojas comparten las piezas de `carrusel.js` (escenario, Gali, chip con las fechas,
 tarjetas de cristal con `cristal()` y la caja oscura de ganadores con `cajaOscura()`), así que un

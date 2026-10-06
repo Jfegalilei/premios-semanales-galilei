@@ -37,7 +37,7 @@ export const LOTERIAS = {
     titulo: 'GaliLotería de Reseñas',
     descripcion: 'La paga 100 % Galilei. Sale en el reporte de las compañías con reseñas; el live es el mismo de la GaliLotería.',
     pagaGalilei: true,
-    pasos: [`${RESENAS_PARA_CLASIFICAR} reviews de 5★ en el mes con tu tarjeta Galilei`],
+    pasos: [`${RESENAS_PARA_CLASIFICAR} reseñas de 5★ en el mes con tu tarjeta Galilei`],
     nota: 'La paga 100 % Galilei: no le cuesta nada a tu empresa. Se rifa en vivo cada mes.',
     // Comparte el live: el campo no sale en su tarjeta y la hoja toma el de esta.
     liveDe: 'galilei',
