@@ -168,9 +168,9 @@ function paginaLoterias(r, { comunes, elegir, recursos }) {
         nombre: LOTERIAS[datos.tipo].nombre,
         pasos: LOTERIAS[datos.tipo].pasos,
         datos,
+        // Sin training (o con training apagado en «Qué mostrar», que queda igual
+        // que una de solo reseñas): solo el premio y el aviso de para quién es.
         soloPremio: !datos.training,
-        // Si tiene training pero se apagó, no se le dice que es solo para quien lo tiene.
-        avisoTraining: !r.contratado.training,
         ...rifaParaHoja(datos.tipo, datos.mes, recursos.rifas),
       })),
     }),
