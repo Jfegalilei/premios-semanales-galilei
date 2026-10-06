@@ -173,20 +173,13 @@ function tarjetaActivos(ctx, c, d) {
   const x = c.x + H.pad;
   etiqueta(ctx, 'Jugadores activos', x, c.y + 34);
 
-  // Qué cuenta como activo, pegado al título en gris pequeño (solo si cabe entero).
-  ctx.save();
-  fuenteEtiqueta(ctx);
-  const xNota = x + ctx.measureText('JUGADORES ACTIVOS').width + 18;
-  ctx.restore();
+  // Qué cuenta como activo, a la derecha de la tarjeta, en gris pequeño.
   ctx.save();
   ctx.font = fG(500, 22);
   ctx.fillStyle = ESTILO.neutral07;
-  ctx.textAlign = 'left';
+  ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
-  const nota = d.totalJugadores ? 'Jugaron en el periodo, del total de registrados' : 'Jugaron en el periodo';
-  if (ctx.measureText(nota).width <= c.x + c.w - H.pad - xNota) {
-    ctx.fillText(nota, xNota, c.y + 34 + altoEtiqueta() / 2 - 2);
-  }
+  ctx.fillText('Jugaron al menos una vez', c.x + c.w - H.pad, c.y + 34 + altoEtiqueta() / 2 - 2);
   ctx.restore();
 
   ctx.textBaseline = 'alphabetic';
