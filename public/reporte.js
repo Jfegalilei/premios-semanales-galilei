@@ -84,6 +84,8 @@ async function init() {
       pintarCompanias();
       pintar();
     },
+    alGuardar: (id, ocultos) => guardarCliente(id, { ocultos }),
+    alError: errorNube,
   });
   montarLoterias($('#listaLoterias'), {
     hoy: hoyLocal(),
@@ -176,8 +178,13 @@ async function alCambiarCatalogo(premios) {
   pintar();
 }
 
-// Logo y nombre a mano de cada cliente, compartidos por todo el equipo.
+// Logo, nombre a mano y «Qué mostrar» de cada cliente, compartidos por todo el equipo.
 async function alCambiarClientes(clientes) {
+  // «Qué mostrar» de cada compañía, compartido por el equipo: antes de esperar a
+  // los logos, para que un cambio se vea al instante.
+  vistas.recibir(Object.fromEntries(clientes.filter((c) => c.ocultos).map((c) => [c.id, c.ocultos])));
+  pintarCompanias();
+  pintar();
   const logos = new Map();
   await Promise.all(clientes.filter((c) => c.logo).map(async (c) => {
     const img = await cargarImagen(c.logo).catch(() => null);

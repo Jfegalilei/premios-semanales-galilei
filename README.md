@@ -437,6 +437,12 @@ solo reviews y lotería.
 
 En el PDF se dice «reseñas», no «reviews».
 
+**Qué mostrar** (apagar training o reseñas, prender «Pedir metas») es del equipo: se guarda en
+Firestore, en el documento de la compañía en `clientes` (campo `ocultos`), y le sale igual a
+cualquiera que abra la página. Lo que alguien tuviera de antes en su navegador
+(`localStorage`, `reporte.ocultos`) se sube la primera vez que abre la página, si la compañía
+aún no tiene nada guardado.
+
 Los teams **GaliNew…** (los de Galilei para la gente nueva) y los de **administradores o
 administrativos** no salen nunca: ni en el Top 3 de sedes ni en premios por sede
 (`fueraDelReporte` en `reporte-datos.js`). Sus premios sí cuentan en el total.
