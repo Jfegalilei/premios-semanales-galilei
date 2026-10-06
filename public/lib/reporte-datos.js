@@ -214,6 +214,8 @@ export function loteriaAuteco(datos, compania, periodo) {
     enCurso: mes === `${hoyLocal().slice(0, 7)}-01`,
     training: true,
     cargada: datos.autecos.length > 0,
+    // Las demás loterías cuentan «empleados»; la de Auteco, «jugadores».
+    unidad: ['jugador', 'jugadores'],
     clasificados: tecnicos + asesores,
     pie: `${entero(tecnicos)} ${tecnicos === 1 ? 'técnico' : 'técnicos'} · ${entero(asesores)} ${asesores === 1 ? 'asesor' : 'asesores'}`,
   };
