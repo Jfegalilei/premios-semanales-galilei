@@ -427,7 +427,7 @@ solo reviews y lotería.
    («GaliLoterías», `dibujarLoterias`), con un solo botón al live: con training, las dos
    con clasificados y requisito; con solo reseñas, la de Reseñas completa y la de Galilei solo
    con el premio y el ganador. Los clasificados salen como «Clasificados por parte de *Compañía*»
-   (con un nombre largo la letra baja hasta que quepa) y la empresa del ganador va en verde.
+   (con un nombre largo la letra baja hasta que quepa; en la de Auteco, «Clasificados en *mes*») y la empresa del ganador va en verde.
 6. **Metas** (`public/lib/hoja-metas.js`), la última: una hoja sin datos que le pide al cliente
    que nos mande las metas de sus sedes, con Gali preocupado
    (`Assets/Personajes/Gali-preocupado.webp`, fuera de `lista.json` para que no salga en otras

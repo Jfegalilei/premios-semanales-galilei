@@ -42,10 +42,13 @@ function arribaDe(ctx, titulo) {
 }
 
 // Los clasificados son de la compañía: «Clasificados por parte de Lavocadería».
-// El mes no hace falta: va en la cabecera («Rifa de septiembre»).
-const clasificadosDe = (cliente, d) => (
-  `Clasificados${cliente ? ` por parte de ${cliente.trim()}` : ''}${d.enCurso ? ' (hasta hoy)' : ''}`
-);
+// El mes no hace falta: va en la cabecera («Rifa de septiembre»). La de Auteco
+// es solo de su gente y va como siempre: «Clasificados en septiembre».
+const clasificadosDe = (cliente, d) => {
+  const hastaHoy = d.enCurso ? ' (hasta hoy)' : '';
+  if (d.tipo === 'auteco') return `Clasificados en ${nombreMes(d.mes)}${hastaHoy}`;
+  return `Clasificados${cliente ? ` por parte de ${cliente.trim()}` : ''}${hastaHoy}`;
+};
 
 // Una etiqueta en una línea: con un nombre de compañía largo, la letra baja
 // hasta que quepa (como mucho a la mitad).
