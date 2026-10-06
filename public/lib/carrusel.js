@@ -55,7 +55,7 @@ const D = {
 
   titulo: { x: 100, y: 225, w: 684, fuente: 100, min: 62, interlinea: 0.94, altoMax: 222, minEntero: 40 },
 
-  // Línea verde bajo el título, cuando la pieza la lleva (el costo total en el
+  // Línea verde bajo el título, cuando la pieza la lleva (la inversión total en el
   // reporte para clientes). Para hacerle sitio antes de las tarjetas, el título
   // arranca en `titulo` en vez de 100: a dos líneas termina en ~375.
   subtitulo: { fuente: 56, min: 34, hueco: 14, titulo: 80 },
@@ -337,6 +337,7 @@ function ganadoresDe(grupos) {
  */
 export function dibujarDiapositiva(canvas, {
   kicker, logoCliente, titulo, subtitulo, etiqueta, logo, diapositiva, personaje, fondo, trofeo,
+  desliza = true,
 }) {
   const { escala } = CARRUSEL;
   canvas.width = ANCHO * escala;
@@ -372,14 +373,15 @@ export function dibujarDiapositiva(canvas, {
   // Sin premios (el reporte para clientes dibuja la hoja igual) no hay ganadores.
   if (diapositiva.grupos.length) dibujarGanadores(ctx, cajaGanadores(plantilla), diapositiva.ganadores || []);
 
-  if (diapositiva.partes > 1) dibujarPaginas(ctx, diapositiva.parte, diapositiva.partes);
+  if (diapositiva.partes > 1) dibujarPaginas(ctx, diapositiva.parte, diapositiva.partes, desliza);
 
   ctx.restore();
   return canvas;
 }
 
 // Puntos de «hay más páginas»: uno por página, la actual estirada en verde.
-function dibujarPaginas(ctx, parte, partes) {
+// `desliza` en falso quita el «Desliza →» (el reporte para clientes es un PDF).
+function dibujarPaginas(ctx, parte, partes, desliza) {
   const { cy, radio, activo, hueco, fuente, flecha, margen } = D.paginas;
   const alto = radio * 2;
   const total = activo + (partes - 1) * alto + (partes - 1) * hueco;
@@ -394,7 +396,7 @@ function dibujarPaginas(ctx, parte, partes) {
     x += w + hueco;
   }
 
-  if (parte < partes) {
+  if (desliza && parte < partes) {
     const derecha = ANCHO - margen;
     // Flecha: palito y punta, en el mismo verde.
     ctx.strokeStyle = ESTILO.g500;

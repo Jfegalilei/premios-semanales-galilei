@@ -1,34 +1,60 @@
-// Reporte para clientes: los CSV de las dos queries -> hojas de celular por
-// compañía y periodo -> PDF.
+// Reporte para clientes: los CSV de las queries -> hojas de celular por compañía
+// y periodo -> PDF.
+//
+// Este archivo solo coordina la página: el estado, los datos cargados, la lista
+// de compañías, la vista previa y los botones. Cada pieza vive en su módulo:
+//   reporte/panel-carga.js  pasos 1 y 2: queries y CSV
+//   reporte/datos-guardados.js  los CSV guardados para el equipo, por query y mes
+//   reporte/lista-companias.js  paso 4: compañías por grupo (Training / Reseñas)
+//   reporte/loterias.js     paso 3: las loterías del mes (Firestore)
+//   reporte/hojas.js        qué hojas lleva cada compañía y cómo se dibujan
+//   reporte/exportar.js     PDF, ZIP y descarga
+//   lib/reporte-datos.js    de los CSV a las cifras de cada hoja
 
-import { CONSULTAS, INSTRUCCION } from './lib/consultas.js';
-import { periodosEntre, diaMes } from './lib/periodos.js';
+import { periodosEntre, hoyLocal } from './lib/periodos.js';
 import { csvDeEjemplo } from './lib/reporte-demo.js';
 import {
-  interpretarArchivo, conocimiento, premiosEntregados,
-  rangoDeDatos, companiasConDatos,
+  interpretarArchivo, interpretarTabla, conocimiento, premiosEntregados, reviews, loteria, loteriaAuteco, loteriaResenas, servicios,
+  rangoDeDatos, companiasConDatos, SIN_REVIEWS,
 } from './lib/reporte-datos.js';
-import { dibujarConocimiento } from './lib/hoja-conocimiento.js';
-import { armarCarrusel, dibujarDiapositiva, CARRUSEL } from './lib/carrusel.js';
-import { personajeDe } from './lib/lienzo.js';
 import { ESTILO } from './lib/plantillas.js';
-import { valorDe, armarGrupo } from './lib/grupos.js';
 import {
   listaDePersonajes, listaDeFondos, cargarImagen, perfilesOpacos, cajaDelProducto,
 } from './lib/imagenes.js';
-import { escucharPremios, escucharClientes } from './lib/nube.js';
+import {
+  escucharPremios, escucharClientes, guardarCliente, escucharDatosReporte, guardarDatosReporte,
+} from './lib/nube.js';
+import { leerTabla } from './lib/csv.js';
+import { tipoDeArchivo } from './lib/consultas.js';
+import { documentosDeSubida, tablasGuardadas } from './reporte/datos-guardados.js';
 import { slug } from './lib/normalizador.js';
+import { pintarConsultas, pintarArchivos, escucharArrastre } from './reporte/panel-carga.js';
+import {
+  LOTERIAS, loteriaDe, montarLoterias, rifaParaHoja,
+} from './reporte/loterias.js';
+import { componerReporte } from './reporte/hojas.js';
+import { crearListaCompanias, grupoDe } from './reporte/lista-companias.js';
+import { montarLogoCliente } from './reporte/logo-cliente.js';
+import { pdfDe, zipDe, descargarBlob } from './reporte/exportar.js';
 
 const $ = (sel) => document.querySelector(sel);
 
+let listaCompanias = null;
+let logoCliente = null;
+// Nombres de cliente escritos que Firestore aún no confirmó (slug -> nombre).
+const nombresPendientes = {};
+
 const estado = {
-  datos: { resumenes: [], tops: [], fallos: [], companias: [], premios: [] },
-  origen: '',           // qué se cargó, para el aviso bajo la zona de carga
+  datos: null,          // ver `datosVacios`
+  ejemplo: false,       // los datos cargados son los inventados
+  guardados: [],        // documentos de `reporteDatos` (los CSV del equipo)
+  subidas: {},          // query -> { subido, por }: la última subida de cada una
   periodos: [],
   periodo: null,
   companias: [],
   seleccion: null,
-  nombresCliente: {},   // compañía -> nombre escrito a mano
+  nombresCliente: {},   // slug de la compañía -> nombre escrito a mano (Firestore, `clientes`)
+  rifas: {},            // lotería -> { rifa, foto } (paso 3)
   catalogo: [],
   imagenes: new Map(),  // id del premio -> recorte (HTMLImageElement medido)
   logos: new Map(),     // slug de la compañía -> logo en blanco (HTMLImageElement)
@@ -44,40 +70,38 @@ const estado = {
 init();
 
 async function init() {
-  pintarConsultas();
-  pintarArchivos();
-  $('#botonEjemplo').addEventListener('click', cargarEjemplo);
+  estado.datos = datosVacios();
+  pintarConsultas($('#listaConsultas'));
+  pintarArchivos($('#estadoArchivos'), estado.datos);
+  listaCompanias = crearListaCompanias($('#listaCompanias'), { alElegir: elegirCompania });
+  logoCliente = montarLogoCliente({ compania: () => estado.seleccion, alError: errorNube });
+  montarLoterias($('#listaLoterias'), {
+    hoy: hoyLocal(),
+    alCambiar: (rifas, mes) => {
+      estado.rifas = rifas;
+      pintarResumenLoterias(mes);
+      pintar();
+    },
+    alError: errorNube,
+  });
 
+  escucharDatosReporte(alCambiarGuardados, errorNube);
   escucharPremios(alCambiarCatalogo, errorNube);
   escucharClientes(alCambiarClientes, errorNube);
 
+  $('#botonEjemplo').addEventListener('click', cargarEjemplo);
   $('#entradaCsv').addEventListener('change', (e) => {
     leerArchivos([...e.target.files]);
     e.target.value = '';
   });
-  const zona = $('#zonaVacia');
-  ['dragenter', 'dragover'].forEach((ev) => document.addEventListener(ev, (e) => {
-    e.preventDefault();
-    zona.classList.add('activa');
-  }));
-  ['dragleave', 'drop'].forEach((ev) => document.addEventListener(ev, (e) => {
-    e.preventDefault();
-    if (ev === 'dragleave' && e.relatedTarget) return;
-    zona.classList.remove('activa');
-  }));
-  document.addEventListener('drop', (e) => {
-    leerArchivos([...(e.dataTransfer?.files || [])].filter((f) => /\.csv$/i.test(f.name)));
-  });
+  escucharArrastre($('#zonaVacia'), leerArchivos);
 
   $('#campoPeriodo').addEventListener('change', (e) => {
     estado.periodo = estado.periodos.find((p) => p.id === e.target.value) || null;
     pintarCompanias();
     pintar();
   });
-  $('#campoCliente').addEventListener('input', (e) => {
-    if (estado.seleccion) estado.nombresCliente[estado.seleccion] = e.target.value;
-    pintar();
-  });
+  prepararNombreCliente();
   $('#botonDescargar').addEventListener('click', descargar);
   $('#botonExportarTodo').addEventListener('click', exportarTodo);
 
@@ -101,8 +125,8 @@ async function init() {
 function errorNube(err) {
   const aviso = $('#avisoNube');
   aviso.hidden = false;
-  aviso.textContent = `No se pudo leer la biblioteca de premios (${err.code || err.message}). `
-    + 'Los costos de premios físicos y los recortes no van a salir.';
+  aviso.textContent = `No se pudo leer o guardar en Firestore (${err.code || err.message}). `
+    + 'La inversión en premios físicos, los recortes y las loterías pueden no salir.';
 }
 
 // Los recortes se miden como en la semanal: la pieza usa la máscara para pegar
@@ -130,6 +154,7 @@ async function alCambiarCatalogo(premios) {
   pintar();
 }
 
+// Logo y nombre a mano de cada cliente, compartidos por todo el equipo.
 async function alCambiarClientes(clientes) {
   const logos = new Map();
   await Promise.all(clientes.filter((c) => c.logo).map(async (c) => {
@@ -137,293 +162,377 @@ async function alCambiarClientes(clientes) {
     if (img) logos.set(c.id, img);
   }));
   estado.logos = logos;
-  pintar();
-}
-
-/* ---------- archivos ---------- */
-
-function pintarConsultas() {
-  for (const c of CONSULTAS) {
-    const caja = document.createElement('div');
-    caja.className = 'consulta';
-    caja.innerHTML = `
-      <header><h3></h3><button type="button" class="boton">Copiar</button></header>
-      <pre></pre>`;
-    caja.querySelector('h3').textContent = c.titulo;
-    caja.querySelector('pre').textContent = INSTRUCCION + c.sql;
-    const boton = caja.querySelector('button');
-    boton.addEventListener('click', async () => {
-      await navigator.clipboard.writeText(INSTRUCCION + c.sql);
-      boton.textContent = 'Copiada';
-      setTimeout(() => { boton.textContent = 'Copiar'; }, 1500);
-    });
-    $('#listaConsultas').appendChild(caja);
-  }
-}
-
-// Cada archivo reemplaza solo lo que trae (ver `interpretarArchivo`).
-async function leerArchivos(archivos) {
-  if (!archivos.length) return;
-  const errores = [];
-  for (const archivo of archivos) {
-    try {
-      cargar(interpretarArchivo(await archivo.text()), `«${archivo.name}»`);
-    } catch (err) {
-      errores.push(`«${archivo.name}»: ${err.message}`);
-    }
-  }
-  if (errores.length) alert(`No se pudieron leer:\n${errores.join('\n')}`);
-  alCambiarDatos();
-}
-
-function cargarEjemplo() {
-  cargar(interpretarArchivo(csvDeEjemplo()), 'Ejemplo con datos inventados');
-  alCambiarDatos();
-}
-
-function cargar(partes, origen) {
-  Object.assign(estado.datos, partes);
-  estado.origen = origen;
-}
-
-function pintarArchivos() {
-  const d = estado.datos;
-  const chip = (listo, texto) => `<span class="${listo ? 'listo' : ''}">${listo ? '✓ ' : ''}${texto}</span>`;
-  const demo = estado.origen.startsWith('Ejemplo') ? chip(true, 'Ejemplo con datos inventados') : '';
-  $('#estadoArchivos').innerHTML = demo
-    + chip(d.resumenes.length > 0, `Query 1 · Conocimiento${d.resumenes.length ? ` · ${d.resumenes.length} periodos` : ''}`)
-    + chip(d.companias.length > 0, `Query 2 · Compañías y premios${d.companias.length ? ` · ${d.premios.length} premios` : ''}`);
-}
-
-function alCambiarDatos() {
-  pintarArchivos();
-  const { min, max } = rangoDeDatos(estado.datos);
-  estado.periodos = periodosEntre(min, max);
-  estado.companias = companiasConDatos(estado.datos);
-  if (!estado.companias.includes(estado.seleccion)) estado.seleccion = estado.companias[0] || null;
-
-  // Por defecto, la última semana completa (o la más reciente si ninguna lo está).
-  const previo = estado.periodos.find((p) => p.id === estado.periodo?.id);
-  estado.periodo = previo
-    || estado.periodos.find((p) => p.tipo === 'semana' && !p.parcial)
-    || estado.periodos[0] || null;
-
-  const select = $('#campoPeriodo');
-  select.innerHTML = ['semana', 'mes'].map((tipo) => {
-    const opciones = estado.periodos.filter((p) => p.tipo === tipo)
-      .map((p) => `<option value="${p.id}">${p.nombre}${p.parcial ? ' (parcial)' : ''}</option>`).join('');
-    return opciones ? `<optgroup label="${tipo === 'semana' ? 'Semanas' : 'Meses'}">${opciones}</optgroup>` : '';
-  }).join('');
-  if (estado.periodo) select.value = estado.periodo.id;
-
-  $('#zonaVacia').classList.toggle('compacta', estado.companias.length > 0);
-  $('#panelTrabajo').classList.toggle('oculto', !estado.companias.length);
-  if (estado.datos.resumenes.length) $('#panelConsultas details').open = false;
+  // Lo que se está escribiendo y aún no se guardó no se pisa.
+  const nombres = Object.fromEntries(clientes.filter((c) => c.nombre).map((c) => [c.id, c.nombre]));
+  estado.nombresCliente = { ...nombres, ...nombresPendientes };
   pintarCompanias();
   pintar();
 }
 
-/* ---------- compañías ---------- */
+// El nombre del cliente que sale en el PDF (si no, el de la base). Se guarda en
+// Firestore al dejar de escribir, al salir del campo y al cambiar de ventana.
+function prepararNombreCliente() {
+  const campo = $('#campoCliente');
+  let espera = null;
+  const enviar = () => {
+    clearTimeout(espera);
+    for (const [id, nombre] of Object.entries(nombresPendientes)) {
+      guardarCliente(id, { nombre })
+        .then(() => { if (nombresPendientes[id] === nombre) delete nombresPendientes[id]; })
+        .catch(errorNube);
+    }
+  };
+  campo.addEventListener('input', () => {
+    if (!estado.seleccion) return;
+    const id = slug(estado.seleccion);
+    estado.nombresCliente[id] = campo.value;
+    nombresPendientes[id] = campo.value;
+    pintar();
+    clearTimeout(espera);
+    espera = setTimeout(enviar, 600);
+  });
+  campo.addEventListener('blur', enviar);
+  window.addEventListener('blur', enviar);
+}
 
-function pintarCompanias() {
-  const lista = $('#listaCompanias');
-  lista.innerHTML = '';
-  for (const nombre of estado.companias) {
-    const r = estado.periodo ? reporteDe(nombre) : null;
-    const li = document.createElement('li');
-    const boton = document.createElement('button');
-    boton.type = 'button';
-    boton.setAttribute('aria-current', String(nombre === estado.seleccion));
-    const nada = r && !r.conocimiento.juegos && !r.premios.entregas;
-    boton.innerHTML = '<span></span><span class="meta"></span>';
-    boton.children[0].textContent = nombre;
-    boton.children[1].textContent = !r ? '' : nada ? 'sin actividad'
-      : `${r.conocimiento.juegos} juegos · ${r.premios.entregas} premios`;
-    boton.addEventListener('click', () => {
-      estado.seleccion = nombre;
-      pintarCompanias();
-      pintar();
-    });
-    li.appendChild(boton);
-    lista.appendChild(li);
+// El paso 3 dice cómo va cada lotería en el mes elegido y, si ya están todas
+// listas cuando llegan de Firestore, se pliega solo (una vez: después manda
+// quien lo abra o cierre).
+let loteriasPlegadas = false;
+function pintarResumenLoterias(mes) {
+  const ids = Object.keys(LOTERIAS);
+  const lista = (id) => {
+    const { rifa } = rifaParaHoja(id, mes, estado.rifas);
+    return Boolean(rifa.premio && rifa.live);
+  };
+  const { rifa } = rifaParaHoja(ids[0], mes, estado.rifas);
+  $('#resumenLoterias').textContent = `${rifa.mes.charAt(0).toUpperCase()}${rifa.mes.slice(1)}: ${ids
+    .map((id) => `${LOTERIAS[id].nombre} ${lista(id) ? '✓' : '· falta completar'}`).join('  ·  ')}`;
+  if (!loteriasPlegadas && ids.every(lista)) {
+    $('#panelLoterias details').open = false;
+    loteriasPlegadas = true;
   }
 }
+
+/* ---------- datos ---------- */
+
+// Lo guardado manda: cada vez que cambia (una subida propia o de alguien más) se
+// rearman los datos con todo lo que hay.
+function alCambiarGuardados(documentos) {
+  estado.guardados = documentos;
+  const { tablas, subidas } = tablasGuardadas(documentos);
+  estado.subidas = subidas;
+  if (!Object.keys(tablas).length) return;
+  estado.datos = datosVacios();
+  for (const tabla of Object.values(tablas)) Object.assign(estado.datos, interpretarTabla(tabla));
+  estado.ejemplo = false;
+  alCambiarDatos();
+}
+
+function datosVacios() {
+  return { resumenes: [], locations: [], dias: [], loterias: [], autecos: [], companias: [], premios: [], ...SIN_REVIEWS() };
+}
+
+// Cada archivo reemplaza solo lo que trae (ver `interpretarArchivo`) y se guarda
+// para el equipo: cada mes que trae queda con esta subida.
+async function leerArchivos(archivos) {
+  if (!archivos.length) return;
+  const errores = [];
+  const guardadas = [];
+  const existentes = new Set(estado.guardados.map((d) => d.id));
+  for (const archivo of archivos) {
+    try {
+      const texto = await archivo.text();
+      Object.assign(estado.datos, interpretarArchivo(texto));
+      estado.ejemplo = false;
+      const tabla = leerTabla(texto);
+      // El export de la pieza semanal no se guarda: no es de las queries.
+      if (tipoDeArchivo(tabla.columnas) === 'reporte') {
+        aviso(`Guardando «${archivo.name}» para el equipo…`);
+        const { consulta, documentos, meses } = documentosDeSubida(tabla, {
+          existentes, subido: new Date().toISOString(), por: '',
+        });
+        await guardarDatosReporte(documentos);
+        documentos.forEach((d) => existentes.add(d.id));
+        guardadas.push(`${NOMBRES_CONSULTA[consulta]} (${meses.map(nombreMesCorto).join(' y ')})`);
+      }
+    } catch (err) {
+      errores.push(`«${archivo.name}»: ${err.message}`);
+    }
+  }
+  if (errores.length) alert(`No se pudieron leer o guardar:\n${errores.join('\n')}`);
+  aviso(guardadas.length ? `✓ Guardado para el equipo: ${guardadas.join(' · ')}` : '');
+  alCambiarDatos();
+}
+
+const NOMBRES_CONSULTA = {
+  conocimiento: 'Query 1', premios: 'Query 2', reviews: 'Query 3', auteco: 'Query 4',
+};
+const nombreMesCorto = (mes) => new Date(`${mes}-15T12:00:00`).toLocaleString('es-CO', { month: 'long' });
+
+function aviso(texto) {
+  const p = $('#estadoSubida');
+  p.hidden = !texto;
+  p.textContent = texto;
+}
+
+function cargarEjemplo() {
+  Object.assign(estado.datos, interpretarArchivo(csvDeEjemplo()));
+  estado.ejemplo = true;
+  alCambiarDatos();
+}
+
+// Periodos con datos de la query 1 (semanas y meses que trae): los demás salen
+// marcados en el selector y piden subir los CSV.
+const clavePeriodo = (tipo, inicio) => `${tipo}|${inicio}`;
+function periodosConDatos() {
+  return new Set([...estado.datos.resumenes, ...estado.datos.resenas].map((f) => clavePeriodo(f.periodo, f.inicio)));
+}
+
+function alCambiarDatos() {
+  pintarArchivos($('#estadoArchivos'), estado.datos, { ejemplo: estado.ejemplo, subidas: estado.subidas });
+  const { min, max } = rangoDeDatos(estado.datos);
+  estado.periodos = periodosEntre(min, max);
+  estado.companias = companiasConDatos(estado.datos);
+  // Por defecto, la primera de Training (o la primera que haya).
+  if (!estado.companias.includes(estado.seleccion)) {
+    estado.seleccion = estado.companias.find((c) => grupoDe(servicios(estado.datos, c)) === 'training')
+      || estado.companias[0] || null;
+  }
+
+  // Por defecto, la última semana completa con datos (o la más reciente si no hay).
+  const conDatos = periodosConDatos();
+  const previo = estado.periodos.find((p) => p.id === estado.periodo?.id);
+  estado.periodo = previo
+    || estado.periodos.find((p) => p.tipo === 'semana' && !p.parcial && conDatos.has(clavePeriodo(p.tipo, p.inicio)))
+    || estado.periodos.find((p) => p.tipo === 'semana' && !p.parcial)
+    || estado.periodos[0] || null;
+  pintarPeriodos();
+
+  const hayDatos = estado.companias.length > 0;
+  $('#zonaVacia').classList.toggle('compacta', hayDatos);
+  $('#panelTrabajo').classList.toggle('oculto', !hayDatos);
+  // Con datos cargados, las queries ya cumplieron: se pliegan para dejar sitio.
+  if (hayDatos) $('#panelConsultas details').open = false;
+  pintarCompanias();
+  pintar();
+}
+
+function pintarPeriodos() {
+  const select = $('#campoPeriodo');
+  const conDatos = periodosConDatos();
+  select.innerHTML = ['semana', 'mes'].map((tipo) => {
+    const opciones = estado.periodos.filter((p) => p.tipo === tipo)
+      .map((p) => {
+        const nota = !conDatos.has(clavePeriodo(p.tipo, p.inicio)) ? ' · sin datos' : p.parcial ? ' (parcial)' : '';
+        return `<option value="${p.id}">${p.nombre}${nota}</option>`;
+      }).join('');
+    return opciones ? `<optgroup label="${tipo === 'semana' ? 'Semanas' : 'Meses'}">${opciones}</optgroup>` : '';
+  }).join('');
+  if (estado.periodo) select.value = estado.periodo.id;
+}
+
+/* ---------- compañías ---------- */
+
+function elegirCompania(nombre) {
+  estado.seleccion = nombre;
+  pintarCompanias();
+  pintar();
+}
+
+function pintarCompanias() {
+  listaCompanias.pintar(estado.companias.map((nombre) => {
+    const r = estado.periodo ? reporteDe(nombre) : null;
+    return {
+      nombre,
+      grupo: grupoDe(servicios(estado.datos, nombre)),
+      resumen: r ? resumenDe(r) : '',
+    };
+  }), estado.seleccion);
+}
+
+// Lo que tuvo la compañía en el periodo, solo de lo que tiene contratado.
+function resumenDe(r) {
+  if (!tuvoActividad(r)) return 'sin actividad';
+  return [
+    ...(r.servicios.training ? [`${r.conocimiento.juegos} juegos`, `${r.premios.entregas} premios`] : []),
+    ...(r.reviews ? [`${r.reviews.porGali} reviews por Galilei`] : []),
+  ].join(' · ');
+}
+
+const tuvoActividad = (r) => Boolean(r.conocimiento.juegos || r.premios.entregas || r.reviews?.nuevas);
 
 /* ---------- reporte ---------- */
 
 function reporteDe(compania) {
+  const { datos, periodo } = estado;
+  const contratado = servicios(datos, compania);
+  const tipoLoteria = loteriaDe(compania);
   return {
-    cliente: (estado.nombresCliente[compania] || '').trim() || compania,
-    periodo: estado.periodo,
-    conocimiento: conocimiento(estado.datos, compania, estado.periodo),
-    premios: premiosEntregados(estado.datos, compania, estado.periodo, estado.catalogo),
+    compania,
+    servicios: contratado,
+    cliente: (estado.nombresCliente[slug(compania)] || '').trim() || compania,
+    periodo,
+    conocimiento: conocimiento(datos, compania, periodo),
+    premios: premiosEntregados(datos, compania, periodo, estado.catalogo),
+    reviews: reviews(datos, compania, periodo),
+    loterias: loteriasDe(compania, contratado),
     logoCliente: estado.logos.get(slug(compania)) || null,
   };
 }
 
-const enPesos = (n) => `$${Math.round(n).toLocaleString('es-CO')}`;
-
-// Las hojas del reporte, dibujadas en `lienzos`. La 1 es el conocimiento; de la
-// 2 en adelante, la pieza de premios de la semanal con el costo total bajo el
-// título. Con más de siete premios esa pieza se parte en varias páginas, igual
-// que en la semanal.
-function dibujarHojas(compania, lienzos) {
-  const r = reporteDe(compania);
-  const semilla = `${compania}|${r.periodo.id}`;
-  const elegir = (lista, i) => personajeDe(lista, `${semilla}|${i}`);
-  const comunes = {
-    kicker: r.cliente,
-    logoCliente: r.logoCliente,
-    logo: estado.logo,
-    etiqueta: `${diaMes(r.periodo.inicio)} - ${diaMes(r.periodo.fin)}`,
-    trofeo: estado.trofeo,
+// Las loterías que salen en el PDF, en orden: la de training (Galilei, o la
+// propia de Auteco) y, con reseñas, la de Reseñas. Una compañía de solo reseñas
+// abre con la suya y después ve la de training en versión «no participa».
+function loteriasDe(compania, contratado) {
+  const { datos, periodo } = estado;
+  if (!contratado.training && !contratado.reviews) return [];
+  const tipo = loteriaDe(compania);
+  const deTraining = {
+    tipo,
+    ...(tipo === 'auteco' ? loteriaAuteco(datos, compania, periodo) : loteria(datos, compania, periodo)),
   };
-
-  const grupos = [...r.premios.grupos]
-    .sort((a, b) => valorDe(b, estado.catalogo) - valorDe(a, estado.catalogo) || b.conteo - a.conteo)
-    .map((g) => armarGrupo(g, estado.catalogo, estado.imagenes));
-  const diapositivas = armarCarrusel(grupos);
-  if (!diapositivas.length) diapositivas.push({ grupos: [], ganadores: [], parte: 1, partes: 1 });
-
-  while (lienzos.length < diapositivas.length + 1) lienzos.push(document.createElement('canvas'));
-
-  dibujarConocimiento(lienzos[0], {
-    ...comunes,
-    // El nombre siempre en el renglón siguiente a «Reporte».
-    titulo: `Reporte\n${r.cliente}`,
-    tituloCompleto: true,
-    subtitulo: r.conocimiento.juegos ? '' : 'Sin partidas en este periodo',
-    // Sin Gali: el título largo se le montaba encima y no se leía.
-    personaje: null,
-    fondo: elegir(estado.fondos, 'fondo-0'),
-    // El trofeo es de los premios; aquí chocaría con el título.
-    trofeo: null,
-    datos: r.conocimiento,
-  });
-
-  const total = r.premios.entregas ? `Costo total: ${enPesos(r.premios.total)}` : 'Sin premios entregados';
-  diapositivas.forEach((d, i) => dibujarDiapositiva(lienzos[i + 1], {
-    ...comunes,
-    titulo: 'Premios Entregados',
-    subtitulo: total,
-    diapositiva: d,
-    personaje: elegir(estado.personajes, i + 1),
-    fondo: elegir(estado.fondos, `fondo-${i + 1}`),
-  }));
-
-  return { reporte: r, hojas: lienzos.slice(0, diapositivas.length + 1) };
+  if (!contratado.reviews) return [deTraining];
+  const deResenas = { tipo: 'resenas', ...loteriaResenas(datos, compania, periodo) };
+  return contratado.training ? [deTraining, deResenas] : [deResenas, deTraining];
 }
+
+const recursos = () => ({
+  logo: estado.logo,
+  trofeo: estado.trofeo,
+  personajes: estado.personajes,
+  fondos: estado.fondos,
+  catalogo: estado.catalogo,
+  imagenes: estado.imagenes,
+  rifas: estado.rifas,
+});
 
 function pintar() {
   const vista = $('#vistaHojas');
   const compania = estado.seleccion;
   if (!compania || !estado.periodo || !estado.listo) {
-    vista.innerHTML = '';
+    vista.replaceChildren();
+    $('#avisoReporte').replaceChildren();
     return;
   }
-  const escrito = estado.nombresCliente[compania] || '';
-  if ($('#campoCliente').value !== escrito) $('#campoCliente').value = escrito;
-  $('#campoCliente').placeholder = compania;
+  const escrito = estado.nombresCliente[slug(compania)] || '';
+  const campo = $('#campoCliente');
+  if (document.activeElement !== campo && campo.value !== escrito) campo.value = escrito;
+  campo.placeholder = compania;
+  logoCliente.pintar(compania, estado.logos.get(slug(compania)) || null);
 
-  const { reporte, hojas } = dibujarHojas(compania, estado.lienzosVista);
-  vista.innerHTML = '';
-  hojas.forEach((canvas, i) => {
+  const r = reporteDe(compania);
+  const { hojas, nombres } = componerReporte(r, recursos(), estado.lienzosVista);
+  vista.replaceChildren(...hojas.map((canvas, i) => {
     const figura = document.createElement('figure');
     figura.className = 'diapositiva';
     const pie = document.createElement('figcaption');
-    pie.textContent = i === 0 ? 'Página 1 · Conocimiento'
-      : `Página ${i + 1} · Premios${hojas.length > 2 ? ` (${i} de ${hojas.length - 1})` : ''}`;
+    pie.textContent = `Página ${i + 1} · ${nombres[i]}`;
     figura.append(canvas, pie);
-    vista.appendChild(figura);
-  });
-  $('#avisoReporte').textContent = avisos(reporte).join(' · ');
+    return figura;
+  }));
+  pintarAvisos(avisos(r));
 }
 
+function pintarAvisos(lista) {
+  $('#avisoReporte').replaceChildren(...lista.map(({ texto, info }) => {
+    const li = document.createElement('li');
+    if (info) li.className = 'info';
+    li.textContent = texto;
+    return li;
+  }));
+}
+
+// Lo que falta o conviene revisar antes de mandar el PDF. `info` no es un
+// problema: solo dice qué hojas salen y por qué.
 function avisos(r) {
   const lista = [];
-  if (!estado.datos.resumenes.length) lista.push('Falta el CSV de la query 1 (conocimiento)');
-  if (!estado.datos.companias.length) lista.push('Falta el CSV de la query 2 (compañías y premios)');
-  if (r.periodo.parcial) lista.push('El periodo no está completo en los datos cargados');
-  if (r.premios.sinValor.length) {
-    lista.push(`Sin valor en la biblioteca: ${r.premios.sinValor.map((f) => f.nombre).join(', ')}. `
-      + 'Ponlo en la Biblioteca de premios de la pieza semanal para que entre en el costo total');
+  const contratado = [r.servicios.training && 'training', r.servicios.reviews && 'reviews'].filter(Boolean);
+  lista.push({
+    info: true,
+    texto: contratado.length ? `Contratado: ${contratado.join(' y ')}` : 'Sin training ni reviews en los datos cargados',
+  });
+  const sinDatos = estado.datos.resumenes.length && !periodosConDatos().has(clavePeriodo(r.periodo.tipo, r.periodo.inicio));
+  if (sinDatos) lista.push({ texto: 'Este periodo no tiene datos: corre las queries (paso 1) y sube los CSV (paso 2)' });
+  if (!estado.datos.resumenes.length) lista.push({ texto: 'Falta el CSV de la query 1 (conocimiento)' });
+  if (!estado.datos.companias.length) lista.push({ texto: 'Falta el CSV de la query 2 (compañías y premios)' });
+  if (r.periodo.parcial && !sinDatos) lista.push({ texto: 'El periodo no está completo en los datos cargados' });
+  for (const l of r.loterias) {
+    const { nombre } = LOTERIAS[l.tipo];
+    const { rifa } = rifaParaHoja(l.tipo, l.mes, estado.rifas);
+    if (!rifa.premio) lista.push({ texto: `Falta el premio de la ${nombre} de ${rifa.mes} (paso 3)` });
+    else if (!rifa.live) lista.push({ texto: `Falta el link del live de la ${nombre} de ${rifa.mes} (paso 3)` });
+    if (l.tipo === 'auteco' && !l.cargada) lista.push({ texto: 'Falta el CSV de la query 4 (Lotería Auteco)' });
   }
-  const sinRecorte = r.premios.grupos.filter((g) => !estado.imagenes.has(g.id)).length;
+  if (!r.logoCliente) lista.push({ texto: 'Sin logo del cliente: súbelo junto al nombre (sale en lugar del nombre escrito)' });
+  if (r.reviews?.estrellasViejas) {
+    lista.push({ texto: 'El CSV de la query 3 es de una versión vieja (sus estrellas cuentan todas las reviews): vuelve a correrla y súbela' });
+  }
+  if (r.servicios.training && r.premios.sinValor.length) {
+    lista.push({
+      texto: `Sin valor en la biblioteca: ${r.premios.sinValor.map((f) => f.nombre).join(', ')}. `
+        + 'Ponlo en la Biblioteca de premios de la pieza semanal para que entre en la inversión total',
+    });
+  }
+  const sinRecorte = r.servicios.training ? r.premios.grupos.filter((g) => !estado.imagenes.has(g.id)).length : 0;
   if (sinRecorte) {
-    lista.push(`${sinRecorte} ${sinRecorte === 1 ? 'premio' : 'premios'} sin recorte: súbelo en la pieza semanal`);
+    lista.push({ texto: `${sinRecorte} ${sinRecorte === 1 ? 'premio' : 'premios'} sin recorte: súbelo en la pieza semanal` });
   }
   return lista;
 }
 
 /* ---------- PDF ---------- */
 
-// Una página por hoja, del mismo tamaño que la pieza de celular.
-async function pdfDe(compania) {
-  const { hojas } = dibujarHojas(compania, estado.lienzosPdf);
-  const { jsPDF } = window.jspdf;
-  const { ancho, alto } = CARRUSEL;
-  const pdf = new jsPDF({ unit: 'pt', format: [ancho, alto], orientation: 'portrait' });
-  hojas.forEach((canvas, i) => {
-    if (i) pdf.addPage([ancho, alto], 'portrait');
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, ancho, alto);
-  });
-  return pdf.output('blob');
+function pdfDeCompania(compania) {
+  const { hojas, enlaces } = componerReporte(reporteDe(compania), recursos(), estado.lienzosPdf);
+  return pdfDe(hojas, enlaces);
 }
 
 const nombreArchivo = (compania) => (
   `reporte-${slug(compania)}-${estado.periodo.inicio}-al-${estado.periodo.fin}.pdf`
 );
 
-async function descargar() {
-  if (!estado.seleccion || !estado.periodo) return;
-  const boton = $('#botonDescargar');
+// Deshabilita el botón y cambia su texto mientras trabaja; lo deja como estaba al terminar.
+async function conBoton(boton, tarea) {
+  const texto = boton.textContent;
   boton.disabled = true;
-  boton.textContent = 'Generando…';
   try {
-    descargarBlob(await pdfDe(estado.seleccion), nombreArchivo(estado.seleccion));
-  } catch (err) {
-    alert(`No se pudo generar el PDF: ${err.message}`);
+    await tarea((t) => { boton.textContent = t; });
   } finally {
     boton.disabled = false;
-    boton.textContent = 'Descargar PDF';
+    boton.textContent = texto;
   }
+}
+
+async function descargar() {
+  if (!estado.seleccion || !estado.periodo) return;
+  await conBoton($('#botonDescargar'), async (rotulo) => {
+    rotulo('Generando…');
+    // Un respiro para que el rótulo alcance a pintarse antes del trabajo pesado.
+    await new Promise((r) => setTimeout(r, 0));
+    try {
+      descargarBlob(pdfDeCompania(estado.seleccion), nombreArchivo(estado.seleccion));
+    } catch (err) {
+      alert(`No se pudo generar el PDF: ${err.message}`);
+    }
+  });
 }
 
 // Solo las compañías con algo que contar en el periodo elegido.
 async function exportarTodo() {
   if (!estado.periodo) return;
-  const activas = estado.companias.filter((c) => {
-    const r = reporteDe(c);
-    return r.conocimiento.juegos || r.premios.entregas;
-  });
+  const activas = estado.companias.filter((c) => tuvoActividad(reporteDe(c)));
   if (!activas.length) return;
-  const boton = $('#botonExportarTodo');
-  const zip = new window.JSZip();
-  boton.disabled = true;
-  try {
-    for (const [i, compania] of activas.entries()) {
-      boton.textContent = `Preparando ${i + 1} de ${activas.length}…`;
-      // Un respiro para que el contador llegue a pintarse entre reporte y reporte.
-      await new Promise((r) => setTimeout(r, 0));
-      zip.file(nombreArchivo(compania), await pdfDe(compania));
+  await conBoton($('#botonExportarTodo'), async (rotulo) => {
+    try {
+      const zip = await zipDe(
+        activas.map((c) => ({ nombre: nombreArchivo(c), crear: () => pdfDeCompania(c) })),
+        (n, total) => rotulo(`Preparando ${n} de ${total}…`),
+      );
+      descargarBlob(zip, `reportes-${estado.periodo.inicio}-al-${estado.periodo.fin}.zip`);
+      pintarAvisos([{ info: true, texto: `${activas.length} reportes en el ZIP` }]);
+    } catch (err) {
+      alert(`No se pudo armar el ZIP: ${err.message}`);
     }
-    boton.textContent = 'Comprimiendo…';
-    const contenido = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-    descargarBlob(contenido, `reportes-${estado.periodo.inicio}-al-${estado.periodo.fin}.zip`);
-    $('#avisoReporte').textContent = `${activas.length} reportes en el ZIP`;
-  } catch (err) {
-    alert(`No se pudo armar el ZIP: ${err.message}`);
-  } finally {
-    boton.disabled = false;
-    boton.textContent = 'Exportar todo (ZIP)';
-  }
-}
-
-function descargarBlob(blob, nombre) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nombre;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  });
 }

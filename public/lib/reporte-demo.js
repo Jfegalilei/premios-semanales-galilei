@@ -1,4 +1,4 @@
-// Datos de mentira en el formato de las dos queries, para ver el reporte sin
+// Datos de mentira en el formato de las tres queries, para ver el reporte sin
 // cargar nada («Ver ejemplo» o `reporte.html?demo`). Compañía y jugadores
 // inventados; las fechas van desde el primer día del mes anterior hasta ayer.
 //
@@ -14,11 +14,14 @@ const JUGADORES = [
   'Sara Jiménez', 'Mateo Castaño', 'Isabella Franco', 'Sebastián Vélez', 'Natalia Duque',
   'Juan David Rojas', 'Paula Salazar', 'Esteban Muñoz', 'Manuela Giraldo', 'Nicolás Zapata',
 ];
-const PREGUNTAS = [
-  ['¿Cuál es el primer paso al recibir una queja de un cliente?', 'Escuchar sin interrumpir y confirmar lo que entendiste'],
-  ['¿Cada cuánto se debe revisar la fecha de vencimiento del inventario?', 'Todos los días al abrir'],
-  ['¿Qué se le ofrece al cliente si el producto está agotado?', 'Una alternativa similar y la fecha de reposición'],
-];
+// Sedes de mentira: los jugadores se reparten en orden y cada sede tiene además
+// jugadores que no juegan, para que los porcentajes no salgan todos en 100.
+const SEDES = [['Sede Norte', 6], ['Sede Centro', 8], ['Sede Sur', 5], ['Sede Occidente', 7], ['Sede Oriente', 6]];
+const sedeDe = (i) => i % SEDES.length;
+
+// Dos fichas de Google con su calificación de arranque.
+const FICHAS = [['demo-g1', 'Cliente Demo Norte', 4.5, 820], ['demo-g2', 'Cliente Demo Centro', 4.3, 540]];
+
 const PREMIOS = [
   ['Bono Nequi de ${quantity} pesos', 'NEQUI', [10000, 20000, 50000]],
   ['Freidora de Aire', 'STANDARD', [0]],
@@ -38,14 +41,26 @@ export function csvDeEjemplo() {
   const filas = ['tipo,compania,periodo,fecha,player_id,n1,n2,n3,n4,t1,t2,t3,player'];
   const fila = (...c) => filas.push(c.join(','));
 
+  // Reviews: por periodo, igual que la query 3. `rev` -> { nuevas, gali, suma, estrellas, embajadores }
+  const reviews = new Map();
+  const deReviews = (per, ini) => {
+    const clave = `${per}|${ini}`;
+    if (!reviews.has(clave)) {
+      reviews.set(clave, { per, ini, nuevas: 0, gali: 0, suma: 0, estrellas: [0, 0, 0, 0, 0], embajadores: new Map() });
+    }
+    return reviews.get(clave);
+  };
+  const fichas = FICHAS.map(([id, , calificacion, total]) => ({ id, calificacion, total }));
+  FICHAS.forEach(([id, nombre]) => fila('ficha', COMPANIA, '', '', '', '', '', '', '', id, q(nombre), '', ''));
+
   fila('compania', COMPANIA, '', '', '', 32, '', '', '', q('Servicio al cliente | Conoce tu producto | Tutorial'), '', '', '');
 
-  // periodo -> { jugadores: Map(i -> {n, z}), juegos, segundos, precision, fallos: [] }
+  // periodo -> { jugadores: Set(i), partidas: Map(i -> {n, z}), juegos, segundos, preguntas }
   const agregado = new Map();
   const de = (per, ini) => {
     const clave = `${per}|${ini}`;
     if (!agregado.has(clave)) {
-      agregado.set(clave, { per, ini, jugadores: new Map(), juegos: 0, segundos: 0, precision: 0, fallos: PREGUNTAS.map(() => 0) });
+      agregado.set(clave, { per, ini, jugadores: new Set(), partidas: new Map(), juegos: 0, segundos: 0, preguntas: 0 });
     }
     return agregado.get(clave);
   };
@@ -53,19 +68,22 @@ export function csvDeEjemplo() {
   const fin = sumarDias(hoyLocal(), -1);
   for (let fecha = inicioMesAnterior(); fecha <= fin; fecha = sumarDias(fecha, 1)) {
     const periodos = periodosDe(fecha).map(([per, ini]) => de(per, ini));
+    let delDia = 0;
     JUGADORES.forEach((nombre, i) => {
       if (azar() > 0.45) return;
       const n = 1 + Math.floor(azar() * 4);
       const segundos = n * (150 + Math.floor(azar() * 200));
-      const precision = n * (55 + azar() * 40);
-      const z = 50 + Math.floor(azar() * 70);
+      const preguntas = n * (8 + Math.floor(azar() * 5));
+      const z = 15 + Math.floor(azar() * 30);
       for (const a of periodos) {
-        const j = a.jugadores.get(i) || { n: 0, z: 0 };
-        a.jugadores.set(i, { n: j.n + n, z: Math.max(j.z, z) });
+        a.jugadores.add(i);
+        const p = a.partidas.get(i) || { n: 0, z: 0 };
+        a.partidas.set(i, { n: p.n + n, z: Math.max(p.z, z) });
         a.juegos += n;
         a.segundos += segundos;
-        a.precision += precision;
+        a.preguntas += preguntas;
       }
+      delDia += preguntas;
       if (azar() < 0.12) {
         const [premio, tipo, montos] = PREMIOS[Math.floor(azar() * (azar() < 0.8 ? 1 : 3))];
         const monto = montos[Math.floor(azar() * montos.length)];
@@ -73,23 +91,57 @@ export function csvDeEjemplo() {
           tipo === 'NEQUI' ? 'REDEEMED' : 'DELIVERED', q(nombre));
       }
     });
-    PREGUNTAS.forEach((_, k) => {
-      if (azar() < 0.7) {
-        const veces = 1 + Math.floor(azar() * (6 - k * 2));
-        for (const a of periodos) a.fallos[k] += veces;
+    for (const ficha of fichas) {
+      const cuantas = Math.floor(azar() * 7);
+      for (let n = 0; n < cuantas; n++) {
+        const u = azar();
+        const e = u < 0.82 ? 5 : u < 0.92 ? 4 : u < 0.96 ? 3 : u < 0.98 ? 2 : 1;
+        const gali = azar() < 0.55;
+        const quien = Math.floor(azar() * 6);
+        for (const [per, ini] of periodosDe(fecha)) {
+          const a = deReviews(per, ini);
+          a.nuevas += 1;
+          if (gali) {
+            a.gali += 1;
+            a.suma += e;
+            a.estrellas[e - 1] += 1;
+          }
+          if (gali && e === 5) a.embajadores.set(quien, (a.embajadores.get(quien) || 0) + 1);
+        }
+        ficha.calificacion = (ficha.calificacion * ficha.total + e) / (ficha.total + 1);
+        ficha.total += 1;
       }
-    });
+      // Una foto cada lunes, como las que toma el sistema.
+      if (aFecha(fecha).getUTCDay() === 1) {
+        fila('foto', COMPANIA, '', fecha, '', ficha.calificacion.toFixed(2), ficha.total, '', '', ficha.id, '', '', '');
+      }
+    }
+    if (delDia) fila('dia', COMPANIA, '', fecha, '', delDia, '', '', '', '', '', '', '');
   }
 
   for (const a of agregado.values()) {
     fila('resumen', COMPANIA, a.per, a.ini, '', a.jugadores.size, a.juegos, a.segundos,
-      (a.precision / a.juegos).toFixed(2), '', '', '', '');
-    [...a.jugadores.entries()]
-      .sort((x, y) => y[1].z - x[1].z || y[1].n - x[1].n)
+      a.preguntas, '', '', '', '');
+    if (a.per === 'mes') {
+      const p = [...a.partidas.values()];
+      const clasifica = (x) => x.n >= 15 && x.z >= 30;
+      fila('lot', COMPANIA, a.per, a.ini, '', p.filter(clasifica).length, p.filter((x) => x.n >= 10 && !clasifica(x)).length, '', '', '', '', '', '');
+    }
+    SEDES.map(([nombre, total], k) => ({ nombre, total, activos: [...a.jugadores].filter((i) => sedeDe(i) === k).length }))
+      .sort((x, y) => y.activos / y.total - x.activos / x.total || y.activos - x.activos)
       .slice(0, 3)
-      .forEach(([i, j]) => fila('top', COMPANIA, a.per, a.ini, `demo-${i}`, j.n, j.z, '', '', '', '', '', q(JUGADORES[i])));
-    const k = a.fallos.indexOf(Math.max(...a.fallos));
-    fila('fallo', COMPANIA, a.per, a.ini, '', a.fallos[k], '', '', '', q(PREGUNTAS[k][0]), q(PREGUNTAS[k][1]), '', '');
+      .forEach((l) => fila('loc', COMPANIA, a.per, a.ini, '', l.activos, l.total, '', '', q(l.nombre), '', '', ''));
   }
-  return filas.join('\n');
+  for (const a of reviews.values()) {
+    fila('rev', COMPANIA, a.per, a.ini, '', a.nuevas, a.gali, a.gali ? (a.suma / a.gali).toFixed(2) : '', '', '', '', '', '');
+    a.estrellas.forEach((n, i) => n && fila('estrellas', COMPANIA, a.per, a.ini, '', i + 1, n, '', '', '', '', '', ''));
+    [...a.embajadores.entries()]
+      .forEach(([i, n]) => fila('emp', COMPANIA, a.per, a.ini, `demo-${i}`, n, '', '', '', '', '', '', q(JUGADORES[i])));
+  }
+  // Una segunda compañía que solo tiene reviews (sin training): sus filas son las
+  // de reviews de la primera, con otro nombre. Así el ejemplo muestra los dos
+  // casos de lo que una compañía tiene contratado.
+  const soloReviews = filas.filter((f) => /^(ficha|rev|estrellas|emp|foto),/.test(f))
+    .map((f) => f.replace(`,${COMPANIA},`, ',Demo Solo Reviews,'));
+  return [...filas, ...soloReviews].join('\n');
 }

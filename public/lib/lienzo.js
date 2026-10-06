@@ -752,7 +752,7 @@ const PERSONAJE = {
   minHueco: 420,
 };
 
-function azarConSemilla(texto) {
+export function azarConSemilla(texto) {
   let h = 2166136261;
   for (let i = 0; i < texto.length; i += 1) {
     h ^= texto.charCodeAt(i);

@@ -7,10 +7,13 @@
 // reglas de Firestore (bloques `premios` y `premiosConfig`).
 //
 // Por ahora sin login: cualquiera con el enlace puede usar y editar la biblioteca.
+// Eso incluye, por ahora, los datos del reporte para clientes (`reporteDatos`),
+// que traen nombres de empleados y datos de los clientes: para cerrarlos a
+// cuentas de Galilei hay que cambiar sus reglas y volver a pedir sesión.
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import {
-  getFirestore, collection, doc, onSnapshot, setDoc,
+  getFirestore, collection, doc, onSnapshot, setDoc, writeBatch,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 
 const app = initializeApp({
@@ -23,6 +26,20 @@ const app = initializeApp({
 }, 'premios');
 
 const db = getFirestore(app);
+// Los CSV de las queries del reporte, partidos por query y mes
+// (`public/reporte/datos-guardados.js`).
+export function escucharDatosReporte(alCambiar, alError) {
+  return onSnapshot(collection(db, 'reporteDatos'), (snap) => {
+    alCambiar(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  }, alError);
+}
+
+// Todos los documentos de una subida juntos: o quedan todos o ninguno.
+export function guardarDatosReporte(documentos) {
+  const lote = writeBatch(db);
+  for (const { id, datos } of documentos) lote.set(doc(db, 'reporteDatos', id), datos);
+  return lote.commit();
+}
 
 // Cada documento de `premios` es una entrada del catálogo con su recorte dentro,
 // como data URI WebP (`imagen`). El id del documento es el id del premio.
@@ -59,4 +76,21 @@ export function escucharClientes(alCambiar, alError) {
 
 export function guardarCliente(id, datos) {
   return setDoc(doc(db, 'clientes', id), datos, { merge: true });
+}
+
+// Loterías del reporte para clientes: la rifa de cada lotería por mes (premio,
+// ganador, empresa, link del live y foto del premio como data URI WebP), un
+// documento por lotería y mes en `premiosConfig` (`loteria-2026-09`…). No están
+// en la base de datos: se escriben a mano en la página. Los documentos viejos
+// sin mes (`loteria`, `loteriaResenas`, `loteriaAuteco`) también llegan.
+export function escucharLoterias(alCambiar, alError) {
+  return onSnapshot(collection(db, 'premiosConfig'), (snap) => {
+    alCambiar(Object.fromEntries(snap.docs
+      .filter((d) => d.id.startsWith('loteria'))
+      .map((d) => [d.id, d.data()])));
+  }, alError);
+}
+
+export function guardarLoteria(id, datos) {
+  return setDoc(doc(db, 'premiosConfig', id), datos, { merge: true });
 }

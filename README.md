@@ -395,35 +395,68 @@ pieza más grande tarda unos 5 segundos y la interfaz sigue viva.
 ## Reporte para clientes
 
 `reporte.html` arma, para cada compañía, un **PDF con hojas de celular** (1080 × 1792, el mismo
-formato que la pieza semanal) por semana (lunes a domingo) o por mes:
+formato que la pieza semanal) por semana (lunes a domingo) o por mes, **solo con las hojas de lo
+que la compañía tiene contratado** (`servicios()` en `reporte-datos.js`): con training (partidas,
+experiencias activas asignadas o premios en los datos), las hojas 1 y 2; con reviews (una ficha
+de Google activa), la 3; con cualquiera de los dos, la 4. Una compañía de solo reviews recibe
+solo reviews y lotería.
 
 1. **Reporte *Compañía*** (`public/lib/hoja-conocimiento.js`): jugadores activos X/Y, horas
-   capacitadas, juegos, precisión, qué se capacita, pregunta más fallada con su respuesta correcta
-   y Top 3. Las tarjetas llevan un velo oscuro bajo el cristal para que se lean sobre cualquier
+   capacitadas, preguntas respondidas, qué se capacita, gráfico de preguntas respondidas por día
+   y Top 3 de sedes más activas (las `location` de la base). Las tarjetas llevan un velo oscuro bajo el cristal para que se lean sobre cualquier
    escenario.
-2. **Premios entregados**: la misma pieza de la semanal (`dibujarDiapositiva`), con el **costo
+2. **Premios entregados**: la misma pieza de la semanal (`dibujarDiapositiva`), con la **inversión
    total** en verde bajo el título. Con más de siete premios se parte en varias páginas, igual
    que la semanal.
+3. **Reviews en Google** (`public/lib/hoja-reviews.js`), solo para las compañías con ficha de
+   Google activa: calificación general en Google al cierre del periodo y, de las
+   reviews, **solo lo que llegó por Galilei** (tarjeta o juego, `review_click`): cuántas y su
+   promedio, sus estrellas y el Top 3 de empleados con más reviews de 5 estrellas. No sale nada
+   que deje ver cuáles no fueron por Galilei (ni el total de reviews nuevas ni el porcentaje).
+4. **GaliLotería** (`public/lib/hoja-loteria.js`), para todas menos Auteco, que en su lugar
+   recibe la **Lotería Auteco** (misma hoja, con sus requisitos, sus clasificados por rol y su
+   propia rifa en `premiosConfig/loteriaAuteco`): la última rifa (premio, ganador, empresa y botón al live, que en el PDF es un
+   enlace), los clasificados de la compañía en el mes en que termina el periodo y cómo se
+   clasifica (15 partidas en el mes y 30 puntos o más en una). A las compañías que solo tienen
+   reviews les sale con el aviso de que su equipo no participa. La rifa no está en la base: se
+   escribe en el paso 3 de la página y se guarda en Firestore (`premiosConfig/loteria`).
+5. **GaliLotería de Reseñas**, para las compañías con reseñas (misma hoja): clasifican los
+   empleados con 50 o más reviews de 5★ por su tarjeta en el mes (`RESENAS_PARA_CLASIFICAR`).
+   Tiene su propio premio y ganador (`premiosConfig/loteriaResenas`) y usa el live de la de
+   Galilei. Las compañías con reseñas reciben las dos loterías en **una sola hoja**
+   («GaliLoterías», `dibujarLoterias`), con un solo botón al live: con training, las dos
+   con clasificados y requisito; con solo reseñas, la de Reseñas completa y la de Galilei solo
+   con el premio y el ganador.
 
-Las dos hojas comparten las piezas de `carrusel.js` (escenario, Gali, chip con las fechas,
+Las hojas comparten las piezas de `carrusel.js` (escenario, Gali, chip con las fechas,
 tarjetas de cristal con `cristal()` y la caja oscura de ganadores con `cajaOscura()`), así que un
 cambio de estilo en la semanal se ve también aquí. La página 1 no lleva el trofeo: es de los
 premios y chocaba con el título.
 
 ### Los datos
 
-Salen de **dos queries** (`public/lib/consultas.js`), que la página muestra con botón «Copiar».
+Salen de **cuatro queries** (`public/lib/consultas.js`), que la página muestra con botón «Copiar».
 No llevan parámetros —traen todas las compañías desde el primer día del mes anterior—, así que se
-pegan siempre igual en Analytics Chat. Cada una mide unos 1.600 y 1.150 caracteres: el chat corta
-el mensaje hacia los 1.900.
+pegan siempre igual en Analytics Chat. Miden unos 1.780, 1.310, 1.810 y 1.490 caracteres con la
+instrucción delante: el chat corta el mensaje hacia los 1.900.
 
 1. **Conocimiento**, ya agregada en SQL por compañía y periodo (cada semana de lunes a domingo y
-   cada mes): un `resumen` (jugadores con partidas, juegos, segundos, precisión media), el `top`
-   3 por puntaje máximo y la pregunta más fallada (`fallo`) con su respuesta correcta. Va
+   cada mes): un `resumen` (jugadores con partidas, juegos, segundos, preguntas respondidas), el Top
+   3 de sedes (`loc`) por porcentaje de jugadores con partidas, y las preguntas respondidas cada día (`dia`), para el gráfico. Va
    agregada porque el chat devuelve como mucho **10.000 filas**: con una fila por jugador y día
    no alcanzaba ni para un mes. Así salen unos 400.
 2. **Compañías y premios**: jugadores activos y experiencias de cada compañía, y una fila por
    premio entregado (~1.300 en mes y medio).
+   La query 1 trae también los clasificados a la GaliLotería por compañía y mes (`lot`).
+3. **Reviews de Google**, de las fichas activas (`google_location.is_enabled`): las fichas, por
+   periodo las reviews nuevas y las de Galilei con su promedio (`rev`), las de Galilei por
+   estrellas (`estrellas`) y cada empleado con sus reviews 5★ por Galilei (`emp`), y las fotos de la calificación (`foto`, de `location_rating_snapshot`) desde 60 días
+   antes, para tener con qué comparar el arranque del periodo. El `rating` llega en palabras
+   (`ONE` a `FIVE`) y la query lo pasa a número.
+4. **Lotería Auteco**, solo para Auteco: por mes, los clasificados (15 partidas, 30 puntos y
+   escaneos `VALIDATED` de `metric_qr_code_scan`: 10 los técnicos, 20 el resto) partidos por
+   rol, y cuántos cumplen el juego pero no los escaneos. El rol sale del tag de empleado
+   (`employee_tag` → `tag`, `kind = 'employee'`); sin tag de técnico cuenta como asesor.
 
 El botón «Copiar» pone delante de cada query una instrucción (`INSTRUCCION` en
 `public/lib/consultas.js`): que la corra tal cual, una sola vez, y no haga otras consultas. Sin ella
@@ -439,8 +472,7 @@ llegan en ISO (`2026-09-01T00:00:00.000Z`) y la página toma los diez primeros c
 
 En el navegador (`reporte-datos.js`) se filtra lo que no hace falta en SQL: el estado de las
 entregas (Nequi `GENERATED`/`REDEEMED`, el resto `DELIVERED`/`PAID`), los GaliTickets, Tutorial y
-GaliMisión en la lista de experiencias, y se arma el nombre del premio (`${quantity}`). La
-pregunta más fallada sí se filtra en SQL, porque solo se trae una por periodo.
+GaliMisión en la lista de experiencias, y se arma el nombre del premio (`${quantity}`).
 
 **Ver ejemplo** (o `reporte.html?demo`) carga datos inventados de «Cliente Demo»
 (`public/lib/reporte-demo.js`) para ver las hojas sin CSV.
@@ -448,7 +480,7 @@ pregunta más fallada sí se filtra en SQL, porque solo se trae una por periodo.
 **A verificar con el primer export real:** el nombre del jugador se pide como `a.name` de
 `actor`.
 
-### El costo
+### La inversión
 
 Mismo agrupado que la pieza semanal (`agruparPorFamilia` + biblioteca de Firestore), sin
 GaliTickets ni lo marcado con `ignorar`. Bonos (`desglose: por-monto`): suma el monto de cada
@@ -463,6 +495,57 @@ compañía con actividad en el periodo elegido.
 
 `grupos.js` (armado de cada premio para la pieza) e `imagenes.js` (carga y medición de recortes
 y poses) salieron de `app.js` para que los usen las dos páginas.
+
+### Los datos guardados
+
+Los CSV que se suben quedan guardados en Firestore para todo el equipo (`reporteDatos`), y al
+abrir la página se carga todo lo guardado sin correr las queries. **Por ahora sin login**: los
+lee y escribe cualquiera con el enlace, aunque traen nombres de empleados y datos de los
+clientes. Para cerrarlos a cuentas de Galilei, cambiar sus reglas (repo del calendario) a
+`esDeGalilei()` y volver a pedir sesión con Google en la página.
+
+Cada query se guarda partida por mes (`public/reporte/datos-guardados.js`): una subida reemplaza
+los meses que cubre (el anterior y el actual, los que trae la query) y deja los demás como
+estaban. Se puede subir siempre; cada mes queda con lo último subido. El selector de periodo
+llega hasta hoy y marca «sin datos» los periodos que no tienen; al elegir uno, un aviso pide
+correr las queries y subir los CSV.
+
+### La página
+
+`reporte.html` se lee en cuatro pasos numerados: **1** las queries (una tarjeta por query con
+lo que trae, su largo, «Copiar» y el SQL plegado), **2** la zona para soltar los CSV, **3** las
+loterías del mes (una tarjeta por lotería) y **4** las compañías con la vista previa; los avisos
+van como etiquetas sobre las hojas. Las queries se pliegan solas al cargar datos, y las loterías
+cuando las dos están completas. Las compañías van en dos grupos con un selector: **Training**
+(las que tienen training, tengan o no reseñas) y **Reseñas** (solo reseñas).
+
+**Qué rifa sale** (`mesDeLoteria` en `reporte-datos.js`): la del mes en que termina el periodo;
+si termina en la primera semana del mes, la del mes anterior, porque la rifa de un mes se sortea
+a comienzos del siguiente (semana 28 sept – 4 oct → septiembre; 5 – 11 oct → octubre; un reporte
+mensual es de su mes). Los clasificados se cuentan del mismo mes. En el paso 3 se elige el mes
+de la rifa que se está escribiendo.
+
+Lo que se edita en la página queda en Firestore para todo el equipo: las rifas, un documento por
+lotería y mes (`premiosConfig/loteria-2026-09`, `loteriaResenas-…`, `loteriaAuteco-…`; los viejos
+sin mes cuentan como la rifa del mes que tenían escrito) y el nombre del cliente que sale en el PDF
+(`clientes/<slug>`, junto a su logo). El logo se puede subir desde el reporte (paso 4, junto al
+nombre) o desde la pieza semanal: se pasa a blanco (`public/lib/logos.js`, común a las dos) y lo
+usan las dos. Las reglas viven en el repo del calendario
+(`ciclo-contenidos-web/firestore.rules`).
+
+El código de la página está partido por responsabilidad:
+
+| Archivo | Qué hace |
+|---|---|
+| `public/reporte.js` | Coordina: estado, datos cargados, lista de compañías, vista previa, avisos y botones |
+| `public/reporte/panel-carga.js` | Pasos 1 y 2: tarjetas de las queries, pastillas de CSV cargados y arrastrar archivos |
+| `public/reporte/lista-companias.js` | Paso 4: la lista de compañías por grupo (Training / Reseñas) con su selector |
+| `public/reporte/loterias.js` | Paso 3: `LOTERIAS` (nombre, requisitos, nota de cada una), sus tarjetas y el guardado en Firestore |
+| `public/reporte/hojas.js` | Registro `HOJAS`: qué hojas lleva cada compañía según lo contratado y cómo se dibuja cada una |
+| `public/reporte/exportar.js` | PDF (con los enlaces del live), ZIP y descarga |
+
+Una lotería nueva es una entrada en `LOTERIAS`; una hoja nueva, una entrada en `HOJAS` (con
+`aplica` y `paginas`). Ninguna de las dos pide tocar `reporte.js`.
 
 ## Pendientes
 

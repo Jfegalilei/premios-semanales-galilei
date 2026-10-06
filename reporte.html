@@ -15,7 +15,7 @@
     <div>
       <span class="modo">Clientes</span>
       <h1>Reporte para clientes</h1>
-      <p class="sub">PDF por compañía, por semana o por mes: conocimiento y premios entregados, en el formato de la pieza de celular</p>
+      <p class="sub">Un PDF por compañía con lo que tiene contratado: training, reviews y lotería</p>
     </div>
     <nav class="selector" aria-label="Cambiar de herramienta">
       <a href="index.html"><span class="punto usuarios"></span>Para usuarios<small>Pieza semanal de premios</small></a>
@@ -27,32 +27,47 @@
     </label>
   </header>
 
-  <main>
+  <main class="reporte">
     <p id="avisoNube" class="aviso-nube" hidden></p>
 
-    <section id="panelConsultas" class="tarjeta">
+    <!-- 1 · Queries -->
+    <section id="panelConsultas" class="tarjeta paso">
       <details open>
-        <summary>1 · Queries para Analytics Chat</summary>
-        <p class="tenue">
-          Dos queries cortas, siempre iguales: no hay que cambiarles nada. Traen todas las compañías
-          desde el primer día del mes anterior. Copia cada una con su botón (ya trae la instrucción para
-          el chat), pégala en Analytics Chat y baja el CSV con «Export», el botón del pie de la respuesta.
-        </p>
+        <summary>
+          <span class="numero">1</span>
+          <span class="titulo-paso">Queries para Analytics Chat</span>
+          <span class="resumen-paso tenue">Copia cada una, pégala en el chat y baja el CSV con «Export», el botón del pie de la respuesta</span>
+        </summary>
         <div id="listaConsultas" class="consultas"></div>
       </details>
     </section>
 
-    <section id="zonaVacia" class="soltar">
-      <p><strong>2 · Suelta aquí los dos CSV</strong> (juntos o de a uno)</p>
-      <p class="tenue">Se leen en tu navegador y no se suben a ningún lado.</p>
-      <p><button type="button" id="botonEjemplo" class="enlace">Ver ejemplo con datos inventados</button></p>
+    <!-- 2 · CSV -->
+    <section id="zonaVacia" class="soltar paso">
+      <p class="titulo-soltar"><span class="numero">2</span> Suelta aquí los CSV <span class="tenue">(juntos o de a uno)</span></p>
+      <p class="tenue">Lo que subas queda guardado para todo el equipo; cada mes queda con lo último subido ·
+        <button type="button" id="botonEjemplo" class="enlace">ver ejemplo con datos inventados</button></p>
+      <p id="estadoSubida" class="tenue" hidden></p>
       <div id="estadoArchivos" class="archivos"></div>
     </section>
 
+    <!-- 3 · Loterías -->
+    <section id="panelLoterias" class="tarjeta paso">
+      <details open>
+        <summary>
+          <span class="numero">3</span>
+          <span class="titulo-paso">Loterías del mes</span>
+          <span id="resumenLoterias" class="resumen-paso tenue">No están en la base de datos: escríbelas cada mes. Se guardan para todo el equipo</span>
+        </summary>
+        <div id="listaLoterias" class="loterias"></div>
+      </details>
+    </section>
+
+    <!-- 4 · Reporte -->
     <section id="panelTrabajo" class="trabajo oculto">
       <aside class="tarjeta lateral">
-        <h2>Compañías</h2>
-        <ul id="listaCompanias" class="companias"></ul>
+        <h2><span class="numero">4</span> Compañías</h2>
+        <div id="listaCompanias"></div>
       </aside>
 
       <div class="tarjeta principal">
@@ -61,10 +76,21 @@
             <span>Periodo</span>
             <select id="campoPeriodo"></select>
           </label>
-          <label>
+          <label title="El nombre que sale en el PDF. Se guarda para todo el equipo">
             <span>Nombre del cliente</span>
             <input type="text" id="campoCliente" autocomplete="off">
           </label>
+          <div class="logo-cliente">
+            <span>Logo del cliente</span>
+            <div class="fila-logo">
+              <div id="miniaturaLogo" class="miniatura-logo">Sin logo</div>
+              <label id="etiquetaLogoCliente" class="boton" title="Se pasa a blanco al subirlo y lo ve todo el equipo">
+                <span id="textoLogoCliente">Subir logo</span>
+                <input type="file" id="entradaLogoCliente" accept="image/*" hidden>
+              </label>
+              <button type="button" id="botonQuitarLogo" class="enlace" hidden>Quitar</button>
+            </div>
+          </div>
           <div class="acciones">
             <button type="button" id="botonExportarTodo" class="boton"
               title="Un PDF por compañía con actividad en este periodo, en un ZIP">Exportar todo (ZIP)</button>
@@ -72,11 +98,10 @@
           </div>
         </div>
 
+        <ul id="avisoReporte" class="avisos"></ul>
         <div id="vistaHojas" class="vista carrusel"></div>
-        <p id="avisoReporte" class="tenue"></p>
       </div>
     </section>
-
   </main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>

@@ -1,32 +1,177 @@
 /* Reporte para clientes. La interfaz reutiliza `estilos.css` (la vista previa usa
-   la misma fila de diapositivas que la pieza de celular); aquí van sus piezas propias. */
+   la misma fila de diapositivas que la pieza de celular); aquí van sus piezas propias.
+   La página se lee en cuatro pasos numerados: queries, CSV, loterías y reporte. */
 
+/* `hidden` manda siempre: sin esto, `.boton { display: … }` mostraba el botón
+   «Quitar» de una foto que no existe. */
+[hidden] { display: none !important; }
 
-/* Queries */
-#panelConsultas summary {
-  cursor: pointer; font-size: 13px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.06em; color: var(--tenue); list-style: none;
+/* ---------- Pasos ---------- */
+
+.numero {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 22px; flex: 0 0 22px;
+  border-radius: 50%;
+  background: var(--lima); color: var(--tinta);
+  font-size: 12px; font-weight: 700; letter-spacing: 0;
 }
-#panelConsultas summary::-webkit-details-marker { display: none; }
-#panelConsultas summary::before { content: "+ "; color: var(--lima); }
-#panelConsultas details[open] summary::before { content: "− "; }
+
+.paso > details > summary {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+  cursor: pointer; list-style: none;
+}
+.paso > details > summary::-webkit-details-marker { display: none; }
+.paso > details > summary::after {
+  content: "Mostrar"; margin-left: auto;
+  color: var(--lima); font-size: 12px; font-weight: 600;
+}
+.paso > details[open] > summary::after { content: "Ocultar"; }
+.paso > details[open] > summary { margin-bottom: 16px; }
+.titulo-paso {
+  font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.resumen-paso { flex: 1 1 320px; min-width: 0; }
+
+.lateral h2 { display: flex; align-items: center; gap: 8px; }
+
+/* ---------- 1 · Queries ---------- */
+
+.consultas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+}
 .consulta {
+  display: grid; gap: 6px; align-content: start; min-width: 0;
   background: var(--panel-alto); border: 1px solid var(--borde); border-radius: 10px;
-  padding: 12px 14px; display: grid; gap: 8px; align-content: start; min-width: 0;
+  padding: 14px 16px;
 }
 .consulta header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .consulta h3 { margin: 0; font-size: 14px; }
+.consulta .descripcion { margin: 0; }
+.consulta .meta { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; font-size: 11.5px; color: var(--tenue); }
+.consulta .meta .solo { color: var(--lima); }
+.consulta .boton { padding: 6px 14px; font-size: 12.5px; }
+.consulta details summary { cursor: pointer; color: var(--tenue); font-size: 12px; width: fit-content; }
+.consulta details summary:hover { color: var(--texto); }
 .consulta pre {
-  margin: 0; max-height: 260px; overflow: auto; background: var(--fondo);
+  margin: 8px 0 0; max-height: 220px; overflow: auto; background: var(--fondo);
   border: 1px solid var(--borde); border-radius: 7px; padding: 8px 10px;
-  font: 11px/1.45 ui-monospace, Consolas, monospace; color: var(--tenue); white-space: pre;
+  font: 11px/1.45 ui-monospace, Consolas, monospace; color: var(--tenue);
+  white-space: pre-wrap; word-break: break-all;
 }
-.consulta .boton { padding: 5px 12px; font-size: 12px; }
 
-/* Estado de los cuatro archivos */
+/* ---------- 2 · CSV ---------- */
+
+.soltar.paso { padding: 36px 24px; }
+.soltar.compacta { padding: 20px 24px; }
+.titulo-soltar { display: flex; justify-content: center; align-items: center; gap: 8px; font-weight: 600; }
 .archivos { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
 .archivos span {
   border: 1px solid var(--borde); border-radius: 999px; padding: 4px 12px; font-size: 12px; color: var(--tenue);
 }
 .archivos span.listo { border-color: var(--lima); color: var(--lima); }
-.soltar.compacta { padding: 22px 24px; }
+
+/* ---------- 3 · Loterías ---------- */
+
+.loterias {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 12px;
+}
+/* El mes de la rifa manda sobre las tarjetas: va arriba, a todo el ancho. */
+.loterias .mes-rifa { grid-column: 1 / -1; max-width: 280px; }
+.rifa {
+  display: grid; gap: 12px; align-content: start; min-width: 0;
+  background: var(--panel-alto); border: 1px solid var(--borde); border-radius: 10px;
+  padding: 14px 16px;
+}
+.rifa header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.rifa h3 { margin: 0; font-size: 14px; }
+.rifa .estado {
+  border: 1px solid var(--borde); border-radius: 999px; padding: 2px 10px;
+  font-size: 11.5px; color: var(--tenue); white-space: nowrap;
+}
+.rifa .estado.listo { border-color: var(--lima); color: var(--lima); }
+.rifa .descripcion { margin: -6px 0 0; }
+.rifa .copiar { justify-self: start; font-size: 12.5px; }
+.rifa .campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.rifa .campos .ancho { grid-column: 1 / -1; }
+.rifa .foto { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rifa .miniatura {
+  width: 72px; height: 54px; flex: 0 0 72px;
+  display: grid; place-items: center; overflow: hidden;
+  background: var(--fondo); border: 1px dashed var(--borde); border-radius: 8px;
+  color: var(--tenue); font-size: 10.5px; text-align: center;
+}
+.rifa .miniatura img { width: 100%; height: 100%; object-fit: contain; }
+.rifa .foto .boton { padding: 7px 14px; font-size: 12.5px; }
+.rifa .guardado { margin: -4px 0 0; font-size: 12px; color: var(--tenue); }
+.rifa .guardado:empty { display: none; }
+.rifa .guardado.error { color: #f3a08f; }
+
+/* ---------- 4 · Reporte ---------- */
+
+/* Logo del cliente junto al nombre: el botón con la misma letra que los demás
+   (heredaba los 12 px de la etiqueta), la miniatura con ancho propio y «Quitar»
+   como acción secundaria discreta, no como enlace azul subrayado. */
+.controles .logo-cliente { min-width: 0; }
+@media (min-width: 560px) {
+  /* Miniatura, botón y «Quitar» no caben en una columna de 215 px: dos columnas. */
+  .controles .logo-cliente { grid-column: span 2; }
+}
+.controles .fila-logo { flex-wrap: wrap; }
+.controles .fila-logo .boton { font-size: 14px; padding: 0 16px; }
+.controles .fila-logo .miniatura-logo { flex: 0 0 96px; justify-content: center; padding: 0 8px; }
+.controles .fila-logo .enlace { color: var(--tenue); text-decoration: none; font-size: 13px; }
+.controles .fila-logo .enlace:hover { color: var(--texto); text-decoration: underline; }
+
+/* Selector de grupo sobre la lista: un grupo a la vez, con cuántas compañías tiene. */
+.selector-grupo {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  padding: 4px; margin-bottom: 12px;
+  background: var(--fondo); border: 1px solid var(--borde); border-radius: 10px;
+}
+.selector-grupo button {
+  display: flex; justify-content: center; align-items: center; gap: 6px;
+  border: 0; border-radius: 7px; padding: 7px 8px;
+  background: transparent; color: var(--tenue);
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.selector-grupo button:hover:not(:disabled) { color: var(--texto); }
+.selector-grupo button[aria-selected="true"] { background: var(--lima); color: var(--tinta); }
+.selector-grupo button:disabled { opacity: 0.4; cursor: default; }
+.selector-grupo .cuenta {
+  min-width: 20px; padding: 0 6px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08); font-size: 11px;
+}
+.selector-grupo button[aria-selected="true"] .cuenta { background: rgba(0, 0, 0, 0.15); }
+
+.lateral { position: sticky; top: 104px; max-height: calc(100vh - 128px); overflow: auto; }
+/* Nombre arriba y lo del periodo debajo: en una fila, el resumen le quitaba el
+   ancho al nombre y este se partía letra por letra. */
+.companias button { flex-direction: column; align-items: stretch; gap: 2px; }
+.companias button > span:first-child { font-weight: 600; overflow-wrap: anywhere; }
+.companias .meta { white-space: normal; }
+
+.avisos { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.avisos:empty { display: none; }
+.avisos li {
+  border: 1px solid #5a4a22; background: #221d10; color: #f1dca2;
+  border-radius: 8px; padding: 5px 10px; font-size: 12px;
+}
+.avisos li.info { border-color: var(--borde); background: var(--panel-alto); color: var(--tenue); }
+
+@media (max-width: 1100px) {
+  .lateral { position: static; max-height: none; }
+}
+@media (max-width: 720px) {
+  .barra { flex-wrap: wrap; padding: 14px 16px; }
+  main.reporte { padding: 16px 16px 48px; }
+  .resumen-paso { display: none; }
+  .rifa .campos { grid-template-columns: 1fr; }
+}
