@@ -338,6 +338,9 @@ function ganadoresDe(grupos) {
 export function dibujarDiapositiva(canvas, {
   kicker, logoCliente, titulo, subtitulo, etiqueta, logo, diapositiva, personaje, fondo, trofeo,
   desliza = true,
+  // Reporte para clientes: en lugar de los nombres de los ganadores, las sedes
+  // que reclamaron premios ({ nombre, nivel, premios }).
+  sedes = null,
 }) {
   const { escala } = CARRUSEL;
   canvas.width = ANCHO * escala;
@@ -371,12 +374,91 @@ export function dibujarDiapositiva(canvas, {
   if (plantilla.cabecera !== 'centrada') dibujarDedos(ctx, personaje, plantilla.tarjetas);
 
   // Sin premios (el reporte para clientes dibuja la hoja igual) no hay ganadores.
-  if (diapositiva.grupos.length) dibujarGanadores(ctx, cajaGanadores(plantilla), diapositiva.ganadores || []);
+  if (diapositiva.grupos.length) {
+    if (sedes) dibujarSedes(ctx, cajaGanadores(plantilla), sedes);
+    else dibujarGanadores(ctx, cajaGanadores(plantilla), diapositiva.ganadores || []);
+  }
 
   if (diapositiva.partes > 1) dibujarPaginas(ctx, diapositiva.parte, diapositiva.partes, desliza);
 
   ctx.restore();
   return canvas;
+}
+
+// Niveles de las sedes (`team.prize_level`), con el color de su medalla. Sin
+// nivel (-1) no se pone pastilla.
+const NIVELES = {
+  2: { nombre: 'Oro', color: '#E8B931' },
+  1: { nombre: 'Plata', color: '#C3CAD3' },
+  0: { nombre: 'Bronce', color: '#C98A4B' },
+};
+
+// La caja oscura de los ganadores, pero con las sedes: cada una con su nivel en
+// una pastilla del color de la medalla y cuántos premios reclamó. En dos
+// columnas si son más de cuatro; la letra baja antes que salirse.
+// Entre las dos columnas de sedes: más que entre nombres sueltos, para que cada
+// fila se lea como una unidad.
+const HUECO_SEDES = 44;
+function dibujarSedes(ctx, caja, sedes) {
+  const g = D.ganadores;
+  const { x, y, w } = caja;
+  const columnas = sedes.length > 4 ? 2 : 1;
+  const filas = Math.max(1, Math.ceil(sedes.length / columnas));
+  const altoTitulo = g.tituloFuente * g.interlinea;
+  const disponible = caja.h - g.padY * 2 - altoTitulo - g.hueco;
+  const fila = Math.min(58, disponible / filas);
+  const tam = Math.max(18, Math.min(30, fila * 0.52));
+  const h = Math.min(caja.h, g.padY * 2 + altoTitulo + g.hueco + filas * fila);
+
+  cajaOscura(ctx, x, y, w, h);
+  ctx.fillStyle = ESTILO.g500;
+  ctx.font = fuenteG(700, g.tituloFuente);
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillText('Premios por sede', x + g.padX, y + g.padY + altoTitulo / 2);
+
+  if (!sedes.length) {
+    ctx.font = fuenteG(500, 26);
+    ctx.fillStyle = ESTILO.neutral07;
+    ctx.fillText('Sin sedes registradas', x + g.padX, y + g.padY + altoTitulo + g.hueco + fila / 2);
+    return;
+  }
+  const anchoColumna = (w - g.padX * 2 - HUECO_SEDES * (columnas - 1)) / columnas;
+  const arriba = y + g.padY + altoTitulo + g.hueco;
+  sedes.forEach((sede, i) => {
+    const col = Math.floor(i / filas);
+    const cy = arriba + fila * ((i % filas) + 0.5);
+    const x0 = x + g.padX + col * (anchoColumna + HUECO_SEDES);
+    const derecha = x0 + anchoColumna;
+
+    // De derecha a izquierda: cuántos premios, la pastilla del nivel y el nombre.
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'right';
+    ctx.font = fuenteG(700, tam);
+    ctx.fillStyle = ESTILO.blanco;
+    const cifra = `${sede.premios}`;
+    ctx.fillText(cifra, derecha, cy + 1);
+    let borde = derecha - ctx.measureText(cifra).width - 14;
+
+    const nivel = NIVELES[sede.nivel];
+    if (nivel) {
+      ctx.font = fuenteG(700, tam * 0.72);
+      const wPill = ctx.measureText(nivel.nombre).width + tam * 0.9;
+      const hPill = tam * 1.15;
+      redondeado(ctx, borde - wPill, cy - hPill / 2, wPill, hPill, hPill / 2);
+      ctx.fillStyle = nivel.color;
+      ctx.fill();
+      ctx.fillStyle = nivel.tinta || ESTILO.tintaChip;
+      ctx.textAlign = 'center';
+      ctx.fillText(nivel.nombre, borde - wPill / 2, cy + 1);
+      borde -= wPill + 12;
+    }
+
+    ctx.textAlign = 'left';
+    ctx.font = fuenteG(600, tam);
+    ctx.fillStyle = ESTILO.blanco;
+    ctx.fillText(recortar(ctx, sede.nombre, borde - x0), x0, cy + 1);
+  });
 }
 
 // Puntos de «hay más páginas»: uno por página, la actual estirada en verde.

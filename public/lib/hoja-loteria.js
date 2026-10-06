@@ -188,6 +188,7 @@ function tarjetaLoteria(ctx, c, l, copa) {
     }
   }
   if (l.soloPremio) {
+    if (!l.avisoTraining) return;
     // Que no parezca que su equipo puede ganarla: es de las empresas con training.
     ctx.font = fG(500, 24);
     const aviso = hastaLineas(ctx, 'Esta lotería es solo para los equipos de empresas con Galilei Training.', ancho, 3);

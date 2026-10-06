@@ -130,6 +130,10 @@ export function interpretarTabla({ registros }) {
         jugador: formatearNombre(nombreDe(r)),
         playerId: r.playerid,
         fecha,
+        // Sede y nivel del team de quien lo reclamó (query 2 desde que los trae).
+        sede: (r.t4 || '').trim(),
+        nivel: r.n2 === '' || r.n2 == null ? null : aNumero(r.n2),
+        conSede: 't4' in r,
       });
     }
   }
@@ -358,7 +362,25 @@ export function premiosEntregados(datos, compania, periodo, catalogo = []) {
     sinValor: filas.filter((f) => f.costo == null),
     entregas: contadas.length,
     ganadores: new Set(contadas.map((e) => e.playerId || e.jugador)).size,
+    sedes: premiosPorSede(contadas),
+    // CSV de una query 2 vieja: sus premios no traen sede.
+    sinSedes: contadas.length > 0 && !contadas.some((e) => e.conSede),
   };
+}
+
+// Premios reclamados por sede, con el mejor nivel entre los teams de la sede
+// que reclamaron (una sede puede tener uno en plata y otro en oro). Los teams
+// sin sede no salen: sus premios cuentan en el total, pero no tienen fila.
+export function premiosPorSede(entregas) {
+  const sedes = new Map();
+  for (const e of entregas) {
+    if (!e.sede) continue;
+    const s = sedes.get(e.sede) || { nombre: e.sede, nivel: null, premios: 0 };
+    s.premios += 1;
+    if (e.nivel != null && (s.nivel == null || e.nivel > s.nivel)) s.nivel = e.nivel;
+    sedes.set(e.sede, s);
+  }
+  return [...sedes.values()].sort((a, b) => b.premios - a.premios || a.nombre.localeCompare(b.nombre, 'es'));
 }
 
 // Rango de fechas cubierto por los exports. Los resúmenes llegan hasta el día en

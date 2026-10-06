@@ -35,12 +35,14 @@ import {
 import { componerReporte } from './reporte/hojas.js';
 import { crearListaCompanias, grupoDe } from './reporte/lista-companias.js';
 import { montarLogoCliente } from './reporte/logo-cliente.js';
+import { montarVistas } from './reporte/vistas.js';
 import { pdfDe, zipDe, descargarBlob } from './reporte/exportar.js';
 
 const $ = (sel) => document.querySelector(sel);
 
 let listaCompanias = null;
 let logoCliente = null;
+let vistas = null;
 // Nombres de cliente escritos que Firestore aún no confirmó (slug -> nombre).
 const nombresPendientes = {};
 
@@ -75,6 +77,12 @@ async function init() {
   pintarArchivos($('#estadoArchivos'), estado.datos);
   listaCompanias = crearListaCompanias($('#listaCompanias'), { alElegir: elegirCompania });
   logoCliente = montarLogoCliente({ compania: () => estado.seleccion, alError: errorNube });
+  vistas = montarVistas($('#vistasCliente'), {
+    alCambiar: () => {
+      pintarCompanias();
+      pintar();
+    },
+  });
   montarLoterias($('#listaLoterias'), {
     hoy: hoyLocal(),
     alCambiar: (rifas, mes) => {
@@ -364,19 +372,23 @@ const tuvoActividad = (r) => Boolean(r.conocimiento.juegos || r.premios.entregas
 
 /* ---------- reporte ---------- */
 
+// `contratado`: lo que la compañía tiene (decide su grupo en la lista).
+// `servicios`: lo que sale en este PDF (lo contratado menos lo que se apagó en
+// «Qué mostrar»); es lo que usan las hojas.
 function reporteDe(compania) {
   const { datos, periodo } = estado;
   const contratado = servicios(datos, compania);
-  const tipoLoteria = loteriaDe(compania);
+  const visible = vistas.visibles(compania, contratado);
   return {
     compania,
-    servicios: contratado,
+    contratado,
+    servicios: visible,
     cliente: (estado.nombresCliente[slug(compania)] || '').trim() || compania,
     periodo,
     conocimiento: conocimiento(datos, compania, periodo),
     premios: premiosEntregados(datos, compania, periodo, estado.catalogo),
-    reviews: reviews(datos, compania, periodo),
-    loterias: loteriasDe(compania, contratado),
+    reviews: visible.reviews ? reviews(datos, compania, periodo) : null,
+    loterias: loteriasDe(compania, visible),
     logoCliente: estado.logos.get(slug(compania)) || null,
   };
 }
@@ -392,6 +404,8 @@ function loteriasDe(compania, contratado) {
     tipo,
     ...(tipo === 'auteco' ? loteriaAuteco(datos, compania, periodo) : loteria(datos, compania, periodo)),
   };
+  // Training apagado en «Qué mostrar»: su lotería va solo con el premio.
+  if (!contratado.training) deTraining.training = false;
   if (!contratado.reviews) return [deTraining];
   const deResenas = { tipo: 'resenas', ...loteriaResenas(datos, compania, periodo) };
   return contratado.training ? [deTraining, deResenas] : [deResenas, deTraining];
@@ -419,6 +433,7 @@ function pintar() {
   const campo = $('#campoCliente');
   if (document.activeElement !== campo && campo.value !== escrito) campo.value = escrito;
   campo.placeholder = compania;
+  vistas.pintar(compania, servicios(estado.datos, compania));
   logoCliente.pintar(compania, estado.logos.get(slug(compania)) || null);
 
   const r = reporteDe(compania);
@@ -447,11 +462,23 @@ function pintarAvisos(lista) {
 // problema: solo dice qué hojas salen y por qué.
 function avisos(r) {
   const lista = [];
-  const contratado = [r.servicios.training && 'training', r.servicios.reviews && 'reviews'].filter(Boolean);
+  const contratado = [r.contratado.training && 'training', r.contratado.reviews && 'reviews'].filter(Boolean);
   lista.push({
     info: true,
     texto: contratado.length ? `Contratado: ${contratado.join(' y ')}` : 'Sin training ni reviews en los datos cargados',
   });
+  const apagado = [
+    r.contratado.training && !r.servicios.training && 'training',
+    r.contratado.reviews && !r.servicios.reviews && 'reseñas',
+  ].filter(Boolean);
+  if (apagado.length) {
+    lista.push({
+      info: true,
+      texto: r.servicios.training || r.servicios.reviews
+        ? `No sale en este PDF: ${apagado.join(' ni ')} (Qué mostrar)`
+        : 'Apagaste todo en «Qué mostrar»: el PDF sale vacío',
+    });
+  }
   const sinDatos = estado.datos.resumenes.length && !periodosConDatos().has(clavePeriodo(r.periodo.tipo, r.periodo.inicio));
   if (sinDatos) lista.push({ texto: 'Este periodo no tiene datos: corre las queries (paso 1) y sube los CSV (paso 2)' });
   if (!estado.datos.resumenes.length) lista.push({ texto: 'Falta el CSV de la query 1 (conocimiento)' });
@@ -465,6 +492,9 @@ function avisos(r) {
     if (l.tipo === 'auteco' && !l.cargada) lista.push({ texto: 'Falta el CSV de la query 4 (Lotería Auteco)' });
   }
   if (!r.logoCliente) lista.push({ texto: 'Sin logo del cliente: súbelo junto al nombre (sale en lugar del nombre escrito)' });
+  if (r.servicios.training && r.premios.sinSedes) {
+    lista.push({ texto: 'El CSV de la query 2 es de una versión vieja (sus premios no traen sede): vuelve a correrla y súbela' });
+  }
   if (r.reviews?.estrellasViejas) {
     lista.push({ texto: 'El CSV de la query 3 es de una versión vieja (sus estrellas cuentan todas las reviews): vuelve a correrla y súbela' });
   }

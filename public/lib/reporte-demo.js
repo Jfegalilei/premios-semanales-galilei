@@ -17,6 +17,8 @@ const JUGADORES = [
 // Sedes de mentira: los jugadores se reparten en orden y cada sede tiene además
 // jugadores que no juegan, para que los porcentajes no salgan todos en 100.
 const SEDES = [['Sede Norte', 6], ['Sede Centro', 8], ['Sede Sur', 5], ['Sede Occidente', 7], ['Sede Oriente', 6]];
+// Nivel del team de cada sede (`team.prize_level`: 2 oro, 1 plata, 0 bronce, -1 sin nivel).
+const NIVELES_SEDES = [2, 1, 0, 2, -1];
 const sedeDe = (i) => i % SEDES.length;
 
 // Dos fichas de Google con su calificación de arranque.
@@ -38,7 +40,7 @@ export function csvDeEjemplo() {
   let semilla = 7;
   const azar = () => (semilla = (semilla * 16807) % 2147483647) / 2147483647;
   const q = (t) => `"${String(t).replace(/"/g, '""')}"`;
-  const filas = ['tipo,compania,periodo,fecha,player_id,n1,n2,n3,n4,t1,t2,t3,player'];
+  const filas = ['tipo,compania,periodo,fecha,player_id,n1,n2,n3,n4,t1,t2,t3,player,t4'];
   const fila = (...c) => filas.push(c.join(','));
 
   // Reviews: por periodo, igual que la query 3. `rev` -> { nuevas, gali, suma, estrellas, embajadores }
@@ -87,8 +89,8 @@ export function csvDeEjemplo() {
       if (azar() < 0.12) {
         const [premio, tipo, montos] = PREMIOS[Math.floor(azar() * (azar() < 0.8 ? 1 : 3))];
         const monto = montos[Math.floor(azar() * montos.length)];
-        fila('premio', COMPANIA, '', fecha, `demo-${i}`, monto, '', '', '', q(premio), tipo,
-          tipo === 'NEQUI' ? 'REDEEMED' : 'DELIVERED', q(nombre));
+        fila('premio', COMPANIA, '', fecha, `demo-${i}`, monto, NIVELES_SEDES[sedeDe(i)], '', '', q(premio), tipo,
+          tipo === 'NEQUI' ? 'REDEEMED' : 'DELIVERED', q(nombre), q(SEDES[sedeDe(i)][0]));
       }
     });
     for (const ficha of fichas) {

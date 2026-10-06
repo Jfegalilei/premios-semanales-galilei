@@ -22,6 +22,7 @@ import { armarCarrusel, dibujarDiapositiva } from '../lib/carrusel.js';
 import { personajeDe, azarConSemilla } from '../lib/lienzo.js';
 import { valorDe, armarGrupo } from '../lib/grupos.js';
 import { LOTERIAS, rifaParaHoja } from './loterias.js';
+import { premiosPorSede } from '../lib/reporte-datos.js';
 
 const enPesos = (n) => `$${Math.round(n).toLocaleString('es-CO')}`;
 
@@ -52,7 +53,8 @@ const HOJAS = [
     paginas: (r, { comunes, elegir, recursos }) => {
       const grupos = [...r.premios.grupos]
         .sort((a, b) => valorDe(b, recursos.catalogo) - valorDe(a, recursos.catalogo) || b.conteo - a.conteo)
-        .map((g) => armarGrupo(g, recursos.catalogo, recursos.imagenes));
+        // Cada premio lleva sus entregas: de ahí salen las sedes de su página.
+        .map((g) => ({ ...armarGrupo(g, recursos.catalogo, recursos.imagenes), entregas: g.entregas }));
       const diapositivas = armarCarrusel(grupos);
       if (!diapositivas.length) diapositivas.push({ grupos: [], ganadores: [], parte: 1, partes: 1 });
       const total = r.premios.entregas ? `Inversión total: ${enPesos(r.premios.total)}` : 'Sin premios entregados';
@@ -64,6 +66,9 @@ const HOJAS = [
           subtitulo: n === 0 ? total : '',
           diapositiva: d,
           desliza: false,
+          // Para el cliente, las sedes y no los nombres de quienes ganaron: solo
+          // las de los premios de esta página.
+          sedes: premiosPorSede(d.grupos.flatMap((g) => g.entregas || [])),
           personaje: elegir(recursos.personajes, n + 1),
           fondo,
         }),
@@ -142,6 +147,8 @@ function paginaLoterias(r, { comunes, elegir, recursos }) {
         pasos: LOTERIAS[datos.tipo].pasos,
         datos,
         soloPremio: !datos.training,
+        // Si tiene training pero se apagó, no se le dice que es solo para quien lo tiene.
+        avisoTraining: !r.contratado.training,
         ...rifaParaHoja(datos.tipo, datos.mes, recursos.rifas),
       })),
     }),

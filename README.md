@@ -442,7 +442,8 @@ instrucción delante: el chat corta el mensaje hacia los 1.900.
 
 1. **Conocimiento**, ya agregada en SQL por compañía y periodo (cada semana de lunes a domingo y
    cada mes): un `resumen` (jugadores con partidas, juegos, segundos, preguntas respondidas), el Top
-   3 de sedes (`loc`) por porcentaje de jugadores con partidas, y las preguntas respondidas cada día (`dia`), para el gráfico. Va
+   3 de sedes (`loc`; la sede de cada persona es la de su empleado en `employee_location`, o la
+   de su team si no tiene) por porcentaje de jugadores con partidas, y las preguntas respondidas cada día (`dia`), para el gráfico. Va
    agregada porque el chat devuelve como mucho **10.000 filas**: con una fila por jugador y día
    no alcanzaba ni para un mes. Así salen unos 400.
 2. **Compañías y premios**: jugadores activos y experiencias de cada compañía, y una fila por
