@@ -41,6 +41,24 @@ function arribaDe(ctx, titulo) {
   return cabe ? ARRIBA_TITULO_CORTO : H.arriba;
 }
 
+// Los clasificados son de la compañía: «Clasificados por parte de Lavocadería».
+// El mes no hace falta: va en la cabecera («Rifa de septiembre»).
+const clasificadosDe = (cliente, d) => (
+  `Clasificados${cliente ? ` por parte de ${cliente.trim()}` : ''}${d.enCurso ? ' (hasta hoy)' : ''}`
+);
+
+// Una etiqueta en una línea: con un nombre de compañía largo, la letra baja
+// hasta que quepa (como mucho a la mitad).
+function etiquetaQueCabe(ctx, texto, x, y, ancho, escala = 1) {
+  ctx.save();
+  ctx.font = fG(700, H.etiqueta * escala);
+  ctx.letterSpacing = `${H.eyebrow.espacio * escala}px`;
+  const medida = ctx.measureText(texto.toUpperCase()).width;
+  ctx.restore();
+  const cabe = medida > ancho ? Math.max(escala * 0.5, escala * (ancho / medida)) : escala;
+  etiqueta(ctx, texto, x, y + (H.etiqueta * (escala - cabe)) / 2, cabe);
+}
+
 const nombreMes = (iso) => MESES_LARGOS[Number(iso.slice(5, 7)) - 1];
 const conMayuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
@@ -71,7 +89,7 @@ export function dibujarLoteria(canvas, op) {
   cabecera(ctx, { ...op, etiqueta: `${conMayuscula(mes)} ${d.mes.slice(0, 4)}`, tarjetas: Object.values(cajas) });
 
   const enlace = tarjetaRifa(ctx, cajas.rifa, op.rifa || {}, op.foto, op.copa);
-  tarjetaClasificados(ctx, cajas.clasificados, d, mes);
+  tarjetaClasificados(ctx, cajas.clasificados, d, op.kicker);
   // Los requisitos llegan de `reporte.js` (cambian entre Galilei y Auteco); si
   // cambian, cambiar también la query que cuenta los clasificados.
   tarjetaPasos(ctx, cajas.pasos, pasos);
@@ -115,7 +133,7 @@ export function dibujarLoterias(canvas, op) {
 
   pintarFondo(ctx, op.fondo);
   cabecera(ctx, { ...op, etiqueta: `${conMayuscula(nombreMes(mes))} ${mes.slice(0, 4)}`, tarjetas: cajas });
-  op.loterias.forEach((l, i) => tarjetaLoteria(ctx, cajas[i], l, op.copa));
+  op.loterias.forEach((l, i) => tarjetaLoteria(ctx, cajas[i], l, op.copa, op.kicker));
 
   // Botones del live, en fila bajo las tarjetas.
   const enlaces = [];
@@ -134,7 +152,7 @@ export function dibujarLoterias(canvas, op) {
 
 // Una lotería dentro de la hoja combinada: foto a la izquierda y, a la derecha,
 // premio, ganador y —si lleva— clasificados del mes y requisito.
-function tarjetaLoteria(ctx, c, l, copa) {
+function tarjetaLoteria(ctx, c, l, copa, cliente) {
   const { rifa, datos } = l;
   tarjeta(ctx, c);
   const x = c.x + H.pad;
@@ -214,9 +232,7 @@ function tarjetaLoteria(ctx, c, l, copa) {
   let yb = Math.max(y + 16, abajo - altoBloque);
   raya(ctx, x2, yb, derecha, yb);
   yb += 18;
-  // Sin el mes: ya va en la cabecera de la tarjeta («Rifa de septiembre») y con
-  // él no cabía en la columna.
-  etiqueta(ctx, `Tus empleados clasificados${datos.enCurso ? ' (hasta hoy)' : ''}`, x2, yb, 0.8);
+  etiquetaQueCabe(ctx, clasificadosDe(cliente, datos), x2, yb, derecha - x2, 0.8);
   yb += altoEtiqueta(1, 0.8) + 10;
   ctx.textBaseline = 'top';
   ctx.fillStyle = ESTILO.blanco;
@@ -412,10 +428,10 @@ function tarjetaRifa(ctx, c, rifa, foto, trofeo) {
 
 // Cuántos de la compañía van clasificados en el mes y, si lo trae (Auteco),
 // el desglose al pie. Sin más texto: entre menos, mejor.
-function tarjetaClasificados(ctx, c, d, mes) {
+function tarjetaClasificados(ctx, c, d, cliente) {
   tarjeta(ctx, c);
   const x = c.x + H.pad;
-  etiqueta(ctx, `Tus empleados clasificados en ${mes}${d.enCurso ? ' (hasta hoy)' : ''}`, x, c.y + 34);
+  etiquetaQueCabe(ctx, clasificadosDe(cliente, d), x, c.y + 34, c.w - H.pad * 2);
 
   const base = c.y + 34 + altoEtiqueta() + 14 + 96 * 0.78;
   ctx.textAlign = 'left';
