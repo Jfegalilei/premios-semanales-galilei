@@ -35,9 +35,8 @@ export function diaMesLargo(iso) {
   return `${f.getUTCDate()} de ${MESES_LARGOS[f.getUTCMonth()]}`;
 }
 
-// Fecha de hoy en la zona horaria del navegador.
-export function hoyLocal() {
-  const d = new Date();
+// Fecha de hoy (o de `d`) en la zona horaria del navegador.
+export function hoyLocal(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 

@@ -410,6 +410,26 @@ export function rangoDeDatos(datos) {
   return { min: fechas[0], max };
 }
 
+// Último día que cada query trae completo. El día en que se subió iba a medias,
+// así que cuenta hasta el anterior; y la 1, que trae las preguntas de cada día,
+// no pasa del último que trae (las fotos de la calificación de la 3 no son
+// diarias: no sirven para esto). `null`: no se sabe (sin subida ni filas por
+// día) y no se avisa.
+export function datosHasta(datos, subidas = {}) {
+  const alSubir = (consulta) => {
+    const s = subidas[consulta]?.subido;
+    return s ? sumarDias(hoyLocal(new Date(s)), -1) : null;
+  };
+  const ultima = (filas) => filas.map((f) => f.fecha).filter(Boolean).sort().pop() || null;
+  const menor = (...fechas) => fechas.filter(Boolean).sort()[0] || null;
+  return {
+    conocimiento: datos.resumenes.length ? menor(alSubir('conocimiento'), ultima(datos.dias)) : null,
+    premios: datos.companias.length ? alSubir('premios') : null,
+    reviews: datos.fichas.length ? alSubir('reviews') : null,
+    auteco: datos.autecos.length ? alSubir('auteco') : null,
+  };
+}
+
 // Compañías con algo que contar (partidas, premios o reviews) en los exports.
 export function companiasConDatos(datos) {
   return [...new Set([...datos.resumenes, ...datos.premios, ...datos.fichas].map((f) => f.compania))]
