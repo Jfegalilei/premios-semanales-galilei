@@ -62,6 +62,9 @@ const CAMPOS = [
   { clave: 'live', etiqueta: 'Link del live', ejemplo: 'https://…', ancho: true },
 ];
 const GUARDABLES = ['premio', 'ganador', 'empresa', 'live', 'foto'];
+// Lo que pasa de una rifa a la del mes siguiente: todo menos el ganador y su
+// empresa, que son de cada sorteo y quedan en blanco.
+const COPIABLES = ['premio', 'live', 'foto'];
 
 // Meses: «2026-09» <-> «septiembre 2026».
 const nombreMes = (mes) => MESES_LARGOS[Number(mes.slice(5, 7)) - 1];
@@ -133,7 +136,7 @@ export function montarLoterias(contenedor, { alCambiar, alError, hoy }) {
   // Lo escrito que Firestore aún no confirmó, por documento: { id, mes, datos }.
   const pendientes = {};
 
-  const selector = crearSelector(contenedor);
+  const { select: selector, copiarTodas } = crearSelector(contenedor);
   const tarjetas = Object.entries(LOTERIAS).map(([id, loteria]) => {
     const t = crearTarjeta(loteria, CAMPOS.filter((c) => !(c.clave === 'live' && loteria.liveDe)));
     contenedor.appendChild(t.raiz);
@@ -164,8 +167,28 @@ export function montarLoterias(contenedor, { alCambiar, alError, hoy }) {
       // Rifa nueva (sin premio) y la del mes anterior escrita: se ofrece copiarla.
       const anterior = rifas[id]?.[mesMas(mes, -1)]?.rifa;
       t.copiar.hidden = Boolean(rifa.premio) || !anterior?.premio;
-      if (!t.copiar.hidden) t.copiar.textContent = `Copiar premio y foto de ${nombreMes(mesMas(mes, -1))}`;
+      if (!t.copiar.hidden) t.copiar.textContent = `Copiar de ${nombreMes(mesMas(mes, -1))} (sin ganador)`;
     }
+    // Las tres de una vez: si el mes anterior tiene al menos una escrita.
+    copiarTodas.hidden = !tarjetas.some(({ id }) => rifas[id]?.[mesMas(mes, -1)]?.rifa?.premio);
+    if (!copiarTodas.hidden) {
+      copiarTodas.textContent = `Copiar las ${tarjetas.length} loterías de ${nombreMes(mesMas(mes, -1))} (sin ganador)`;
+    }
+  };
+
+  // La rifa del mes anterior en la de este mes, con ganador y empresa en blanco.
+  // La de Reseñas no tiene live propio: no se le copia.
+  const copiarDelAnterior = (id) => {
+    const anterior = rifas[id]?.[mesMas(mes, -1)]?.rifa;
+    if (!anterior?.premio) return false;
+    const { t } = tarjetas.find((x) => x.id === id);
+    const copia = { ganador: '', empresa: '' };
+    for (const clave of COPIABLES) {
+      if (clave === 'live' && !('live' in t.entradas)) continue;
+      copia[clave] = anterior[clave] || '';
+    }
+    anotar(id, copia);
+    return true;
   };
 
   // Guardado: lo pendiente de cada documento, todo junto. Si el documento del
@@ -216,11 +239,8 @@ export function montarLoterias(contenedor, { alCambiar, alError, hoy }) {
       anotar(id, { foto: reducida });
       enviar();
     });
-    // Copia lo que suele repetirse de un mes a otro: el premio y su foto. Ganador,
-    // empresa y live son de cada rifa: quedan en blanco.
     t.copiar.addEventListener('click', () => {
-      const anterior = rifas[id]?.[mesMas(mes, -1)]?.rifa || {};
-      anotar(id, { premio: anterior.premio || '', ...(anterior.foto ? { foto: anterior.foto } : {}) });
+      if (!copiarDelAnterior(id)) return;
       pintarTarjetas();
       enviar();
     });
@@ -229,6 +249,21 @@ export function montarLoterias(contenedor, { alCambiar, alError, hoy }) {
       enviar();
     });
   }
+  copiarTodas.addEventListener('click', () => {
+    const conAnterior = tarjetas.filter(({ id }) => rifas[id]?.[mesMas(mes, -1)]?.rifa?.premio);
+    // Lo ya escrito este mes se pisa: que lo confirme.
+    const escritas = conAnterior.filter(({ id }) => {
+      const r = rifaMostrada(id);
+      return r.premio || r.ganador || r.empresa;
+    });
+    if (escritas.length && !confirm(
+      `${escritas.map((x) => x.loteria.nombre).join(', ')} ya ${escritas.length === 1 ? 'tiene' : 'tienen'} datos en `
+      + `${nombreMes(mes)}. Se reemplazan por los de ${nombreMes(mesMas(mes, -1))} y el ganador queda en blanco. ¿Seguir?`,
+    )) return;
+    for (const { id } of conAnterior) copiarDelAnterior(id);
+    pintarTarjetas();
+    enviar();
+  });
   selector.addEventListener('change', async () => {
     await enviar();
     mes = selector.value;
@@ -254,14 +289,22 @@ export function montarLoterias(contenedor, { alCambiar, alError, hoy }) {
 const soloGuardables = (rifa) => Object.fromEntries(Object.entries(rifa).filter(([k]) => GUARDABLES.includes(k)));
 
 function crearSelector(contenedor) {
+  const fila = document.createElement('div');
+  fila.className = 'fila-mes';
   const label = document.createElement('label');
   label.className = 'mes-rifa';
   const span = document.createElement('span');
   span.textContent = 'Mes de la rifa';
   const select = document.createElement('select');
   label.append(span, select);
-  contenedor.appendChild(label);
-  return select;
+  const copiarTodas = document.createElement('button');
+  copiarTodas.type = 'button';
+  copiarTodas.className = 'boton';
+  copiarTodas.hidden = true;
+  copiarTodas.title = 'Premio, foto y link del live; el ganador y su empresa quedan en blanco';
+  fila.append(label, copiarTodas);
+  contenedor.appendChild(fila);
+  return { select, copiarTodas };
 }
 
 // Del mes pasado al siguiente, más cualquier otro mes que ya tenga rifa escrita.

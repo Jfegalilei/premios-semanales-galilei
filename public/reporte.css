@@ -79,8 +79,10 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   gap: 12px;
 }
-/* El mes de la rifa manda sobre las tarjetas: va arriba, a todo el ancho. */
-.loterias .mes-rifa { grid-column: 1 / -1; max-width: 280px; }
+/* El mes de la rifa manda sobre las tarjetas: va arriba, a todo el ancho, con
+   el botón que copia las del mes anterior al lado. */
+.loterias .fila-mes { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.loterias .mes-rifa { flex: 0 1 280px; }
 .rifa {
   display: grid; gap: 12px; align-content: start; min-width: 0;
   background: var(--panel-alto); border: 1px solid var(--borde); border-radius: 10px;
