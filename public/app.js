@@ -1,7 +1,19 @@
-// Orquestación: CSV -> familias de premio -> vista previa -> JPG.
+// Orquestación: premios de la query 2 (guardados para el equipo) -> periodo ->
+// familias de premio -> vista previa -> JPG. Funciona como el reporte para
+// clientes, pero solo con los premios: la misma query, los mismos datos
+// guardados, el selector de periodo y la alerta de días sin datos.
 
-import { leerEntregas } from './lib/csv.js';
-import { MESES } from './lib/periodos.js';
+import { leerEntregas, leerTabla } from './lib/csv.js';
+import {
+  MESES, periodosEntre, hoyLocal, diaMes,
+} from './lib/periodos.js';
+import {
+  faltaEn, notaIncompleto, pintarAlerta, confirmarDescarga, NOMBRES_CONSULTA,
+} from './lib/incompleto.js';
+import { interpretarTabla, consultaDe, datosHasta } from './lib/reporte-datos.js';
+import { tipoDeArchivo } from './lib/consultas.js';
+import { documentosDeSubida, tablasGuardadas } from './reporte/datos-guardados.js';
+import { pintarConsultas, pintarArchivos, escucharArrastre } from './reporte/panel-carga.js';
 import { agruparPorFamilia, formatearNombre, slug } from './lib/normalizador.js';
 import {
   listaDePersonajes, listaDeFondos, cargarImagen, perfilesOpacos, cajaDelProducto,
@@ -18,7 +30,7 @@ import {
 } from './lib/carrusel.js';
 import {
   escucharPremios, guardarPremio, escucharPosiciones, guardarPosiciones,
-  escucharClientes, guardarCliente,
+  escucharClientes, guardarCliente, escucharDatosReporte, guardarDatosReporte,
 } from './lib/nube.js';
 import { logoEnBlanco, leerComoDataUrl } from './lib/logos.js';
 
@@ -26,15 +38,20 @@ const $ = (sel) => document.querySelector(sel);
 
 const estado = {
   catalogo: [],
-  companias: [],       // [{ nombre, entregas, grupos }]
+  datos: datosVacios(), // lo que trae la query 2: `companias` y `premios` (todas las entregas)
+  guardados: [],        // documentos `premios-…` de `reporteDatos`
+  subidas: {},          // query -> { subido, por }: la última subida
+  local: false,         // los premios son de un export de insights leído aquí (no se guarda)
+  periodos: [],
+  periodo: null,
+  companias: [],       // [{ nombre, entregas, grupos }] del periodo elegido
   seleccion: null,
   imagenes: new Map(),  // id -> HTMLImageElement
   logo: null,
   trofeo: null,         // el icono 3D de la cabecera de la pieza de celular
   personajes: [],       // poses de Gali: una sale en el hueco de cada pieza
   fondos: [],           // escenarios verticales: uno de fondo en la pieza de celular
-  tirada: '',           // se renueva con cada CSV: reparte los personajes de nuevo
-  fechaInforme: null,   // 'AAAA-MM-DD' del día en que se cargó el CSV
+  tirada: '',           // el periodo: cada semana reparte los personajes de nuevo
   posiciones: {},       // `modo-cantidad` -> centro colocado a mano
   logosClientes: new Map(), // slug de la compañía -> logo en blanco (HTMLImageElement)
   personajePieza: null, // el de la pieza en pantalla, para poder arrastrarlo
@@ -52,6 +69,8 @@ const lienzo = crearLienzo();
 init();
 
 async function init() {
+  pintarConsultas($('#listaConsultas'), ['premios']);
+  pintarArchivos($('#estadoArchivos'), estado.datos, { solo: ['premios'] });
   estado.logo = await cargarImagen('marca/logo-galilei.png').catch(() => null);
   estado.trofeo = await cargarImagen('Assets/Iconos/trofeo.webp').catch(() => null);
   await cargarPersonajes();
@@ -65,6 +84,7 @@ async function init() {
     if (companiaActual()) pintar();
   }, errorNube);
   escucharClientes(alCambiarClientes, errorNube);
+  escucharDatosReporte(alCambiarGuardados, errorNube, 'premios');
 
   $('#entradaLogoCliente').addEventListener('change', async (e) => {
     const archivo = e.target.files[0];
@@ -79,23 +99,13 @@ async function init() {
   });
 
   $('#entradaCsv').addEventListener('change', (e) => {
-    const archivo = e.target.files[0];
-    if (archivo) leerArchivo(archivo);
+    leerArchivos([...e.target.files]);
+    e.target.value = '';
   });
-
-  const zona = $('#zonaVacia');
-  ['dragenter', 'dragover'].forEach((ev) => document.addEventListener(ev, (e) => {
-    e.preventDefault();
-    zona.classList.add('activa');
-  }));
-  ['dragleave', 'drop'].forEach((ev) => document.addEventListener(ev, (e) => {
-    e.preventDefault();
-    if (ev === 'dragleave' && e.relatedTarget) return;
-    zona.classList.remove('activa');
-  }));
-  document.addEventListener('drop', (e) => {
-    const archivo = [...(e.dataTransfer?.files || [])].find((f) => /\.csv$/i.test(f.name));
-    if (archivo) leerArchivo(archivo);
+  escucharArrastre($('#zonaVacia'), leerArchivos);
+  $('#campoPeriodo').addEventListener('change', (e) => {
+    estado.periodo = estado.periodos.find((p) => p.id === e.target.value) || null;
+    armarCompanias();
   });
 
   ['#campoKicker', '#campoTitulo', '#campoEtiqueta'].forEach((sel) => {
@@ -260,45 +270,147 @@ async function cargarFondos() {
   estado.fondos = await listaDeFondos();
 }
 
-/* ---------- carga del CSV ---------- */
+/* ---------- datos ---------- */
 
-async function leerArchivo(archivo) {
-  let entregas;
-  try {
-    entregas = leerEntregas(await archivo.text());
-  } catch (err) {
-    alert(err.message);
-    return;
+function datosVacios() {
+  return { companias: [], premios: [] };
+}
+
+// Lo guardado manda: cada vez que cambia (una subida propia o de alguien más) se
+// rearman los premios. Un export de insights leído aquí se queda hasta que llegue
+// una subida nueva de la query 2.
+function alCambiarGuardados(documentos) {
+  estado.guardados = documentos;
+  const { tablas, subidas } = tablasGuardadas(documentos);
+  const nueva = subidas.premios?.subido !== estado.subidas.premios?.subido;
+  estado.subidas = subidas;
+  if (estado.local && !nueva) return;
+  estado.local = false;
+  estado.datos = { ...datosVacios(), ...(tablas.premios ? interpretarTabla(tablas.premios) : {}) };
+  alCambiarDatos();
+}
+
+// Los CSV de la query 2 (o de cualquier query del reporte) se guardan para el
+// equipo, como en el reporte para clientes; el export de insights solo se lee aquí.
+async function leerArchivos(archivos) {
+  if (!archivos.length) return;
+  const errores = [];
+  const avisos = [];
+  const existentes = new Set(estado.guardados.map((d) => d.id));
+  for (const archivo of archivos) {
+    try {
+      const texto = await archivo.text();
+      const tabla = leerTabla(texto);
+      const tipo = tipoDeArchivo(tabla.columnas);
+      if (tipo === 'reporte') {
+        if (consultaDe(tabla) !== 'premios') throw new Error('no es la query 2: súbelo en el reporte para clientes');
+        aviso(`Guardando «${archivo.name}» para el equipo…`);
+        const { documentos, meses } = documentosDeSubida(tabla, {
+          existentes, subido: new Date().toISOString(), por: '',
+        });
+        await guardarDatosReporte(documentos);
+        documentos.forEach((d) => existentes.add(d.id));
+        avisos.push(`✓ Guardado para el equipo: ${NOMBRES_CONSULTA.premios} (${meses.map(nombreMes).join(' y ')})`);
+      } else if (tipo === 'premios') {
+        // Los nombres se normalizan aquí, una sola vez: así el corte y las
+        // mayúsculas valen igual para la pieza, el conteo y el desduplicado.
+        const premios = leerEntregas(texto).map((f) => ({ ...f, jugador: formatearNombre(f.jugador) }));
+        estado.datos = { ...datosVacios(), premios };
+        estado.local = true;
+        avisos.push(`Export de insights «${archivo.name}» leído solo en este navegador: no se guarda para el equipo`);
+        alCambiarDatos();
+      } else {
+        throw new Error('no se reconoce: no es la query 2 ni el export de insights');
+      }
+    } catch (err) {
+      errores.push(`«${archivo.name}»: ${err.message}`);
+    }
   }
+  if (errores.length) alert(`No se pudieron leer o guardar:\n${errores.join('\n')}`);
+  aviso(avisos.join(' · '));
+}
 
-  // Los nombres se normalizan aquí, una sola vez: así el corte y las mayúsculas
-  // valen igual para la pieza, para el conteo de ganadores y para el desduplicado.
-  entregas = entregas.map((f) => ({ ...f, jugador: formatearNombre(f.jugador) }));
+const nombreMes = (mes) => new Date(`${mes}-15T12:00:00`).toLocaleString('es-CO', { month: 'long' });
 
+function aviso(texto) {
+  const p = $('#estadoSubida');
+  p.hidden = !texto;
+  p.textContent = texto;
+}
+
+// Hasta dónde llegan los premios: si el periodo pasa de ahí, faltan días. Un
+// export de insights leído aquí no dice cuándo se sacó: no se avisa.
+function incompleto(periodo) {
+  if (estado.local) return null;
+  return faltaEn(periodo, datosHasta(estado.datos, estado.subidas), ['premios']);
+}
+
+const entregasDe = (periodo) => estado.datos.premios
+  .filter((f) => f.fecha && f.fecha >= periodo.inicio && f.fecha <= periodo.fin);
+
+function alCambiarDatos() {
+  pintarArchivos($('#estadoArchivos'), estado.datos, { subidas: estado.subidas, solo: ['premios'] });
+  const fechas = estado.datos.premios.map((f) => f.fecha).filter(Boolean).sort();
+  const hoy = hoyLocal();
+  const ultima = fechas[fechas.length - 1];
+  estado.periodos = fechas.length ? periodosEntre(fechas[0], ultima > hoy ? ultima : hoy) : [];
+
+  // Por defecto, la última semana ya terminada y completa (o la última terminada).
+  const terminada = (p) => p.tipo === 'semana' && p.fin < hoy;
+  estado.periodo = estado.periodos.find((p) => p.id === estado.periodo?.id)
+    || estado.periodos.find((p) => terminada(p) && !incompleto(p))
+    || estado.periodos.find(terminada)
+    || estado.periodos[0] || null;
+  pintarPeriodos();
+
+  const hayDatos = estado.periodos.length > 0;
+  $('#zonaVacia').classList.toggle('compacta', hayDatos);
+  $('#panelTrabajo').classList.toggle('oculto', !hayDatos);
+  // Con datos cargados, la query ya cumplió: se pliega para dejar sitio.
+  if (hayDatos) $('#panelConsultas details').open = false;
+  armarCompanias();
+}
+
+function pintarPeriodos() {
+  const select = $('#campoPeriodo');
+  select.innerHTML = ['semana', 'mes'].map((tipo) => {
+    const opciones = estado.periodos.filter((p) => p.tipo === tipo).map((p) => {
+      const falta = incompleto(p);
+      const nota = !entregasDe(p).length ? ' · sin premios'
+        : falta ? notaIncompleto(falta)
+          : p.parcial ? ' (parcial)' : '';
+      return `<option value="${p.id}">${p.nombre}${nota}</option>`;
+    }).join('');
+    return opciones ? `<optgroup label="${tipo === 'semana' ? 'Semanas' : 'Meses'}">${opciones}</optgroup>` : '';
+  }).join('');
+  if (estado.periodo) select.value = estado.periodo.id;
+}
+
+// Las compañías con premios en el periodo elegido.
+function armarCompanias() {
+  const { periodo } = estado;
   const porCompania = new Map();
-  for (const fila of entregas) {
+  for (const fila of periodo ? entregasDe(periodo) : []) {
     if (!porCompania.has(fila.compania)) porCompania.set(fila.compania, []);
     porCompania.get(fila.compania).push(fila);
   }
-
   estado.companias = [...porCompania.entries()]
     .map(([nombre, filas]) => construirCompania(nombre, filas))
+    .filter((c) => c.entregas.length)
     .sort((a, b) => b.entregas.length - a.entregas.length);
 
-  // Cada CSV reparte los personajes de nuevo: dos semanas seguidas no le tocan
-  // los mismos bichos a las mismas compañías. Dentro de una carga la tirada no
-  // cambia, así que la vista previa no muda de personaje a cada repintado.
-  estado.tirada = String(Math.random());
-  estado.fechaInforme = hoyLocal();
-  // La etiqueta arranca con las fechas automáticas, pero queda escrita en el
+  // Cada periodo reparte los personajes de nuevo: dos semanas seguidas no le
+  // tocan los mismos bichos a las mismas compañías, y dentro de una semana no
+  // cambian a cada repintado ni al volver a abrir la página.
+  estado.tirada = periodo?.id || '';
+  // La etiqueta arranca con las fechas del periodo, pero queda escrita en el
   // campo para que se pueda corregir a mano.
-  $('#campoEtiqueta').value = ultimosDias(estado.fechaInforme, 8);
+  $('#campoEtiqueta').value = periodo ? fechasDe(periodo) : '';
 
-  estado.seleccion = estado.companias[0]?.nombre || null;
+  if (!estado.companias.some((c) => c.nombre === estado.seleccion)) {
+    estado.seleccion = estado.companias[0]?.nombre || null;
+  }
   estado.heroeManual = null;
-
-  $('#zonaVacia').classList.add('oculto');
-  $('#panelTrabajo').classList.remove('oculto');
   pintarFaltantes();
   pintarCompanias();
   pintar();
@@ -763,8 +875,13 @@ function avisoPersonaje(cantidad) {
 }
 
 function pintar() {
+  pintarIncompleto();
   const compania = companiaActual();
-  if (!compania) return;
+  if (!compania) {
+    $('#vistaCarrusel').replaceChildren();
+    $('#avisoPieza').textContent = estado.periodo ? 'Nadie reclamó premios en este periodo' : '';
+    return;
+  }
 
   if ($('#campoKicker').dataset.compania !== compania.nombre) {
     $('#campoKicker').value = compania.nombre;
@@ -832,6 +949,16 @@ function pintar() {
   $('#avisoPieza').textContent = avisos.join(' · ');
 }
 
+// La alerta grande de días sin cargar: la pieza saldría con premios de menos.
+function pintarIncompleto() {
+  pintarAlerta($('#alertaIncompleto'), {
+    periodo: estado.periodo,
+    falta: incompleto(estado.periodo),
+    marco: $('#panelTrabajo .principal'),
+    queHacer: 'Vuelve a correr la query (paso 1) y sube el CSV (paso 2)',
+  });
+}
+
 /* ---------- pieza de celular ---------- */
 
 // Todos los premios de la compañía, los de más valor primero. El rediseño los
@@ -888,7 +1015,7 @@ function pintarCarrusel(compania) {
       const sufijo = d.partes > 1 ? `-${i + 1}` : '';
       estado.diapositivas.push({
         canvas,
-        nombre: `premios-${slug(compania.nombre)}-${fecha}-celular${sufijo}.${SALIDA.extension}`,
+        nombre: `premios-${slug(compania.nombre)}-${sufijoPeriodo()}-celular${sufijo}.${SALIDA.extension}`,
       });
     });
   } catch (err) {
@@ -917,9 +1044,12 @@ function pintarCarrusel(compania) {
 
 /* ---------- salida ---------- */
 
+// «2026-10-05-al-2026-10-11»: el periodo, en el nombre de cada archivo.
+const sufijoPeriodo = () => `${estado.periodo.inicio}-al-${estado.periodo.fin}`;
+
 function nombreArchivo(compania) {
   const sufijo = estado.modo === 'collage' ? '-collage' : '';
-  return `premios-${slug(compania.nombre)}-${fechaMaxima(compania.entregas)}${sufijo}.${SALIDA.extension}`;
+  return `premios-${slug(compania.nombre)}-${sufijoPeriodo()}${sufijo}.${SALIDA.extension}`;
 }
 
 // Lo que se exporta de la compañía en pantalla: una pieza en los modos
@@ -933,6 +1063,7 @@ function piezasActuales(compania) {
 async function descargar() {
   const compania = companiaActual();
   if (!compania) return;
+  if (!confirmarDescarga(incompleto(estado.periodo))) return;
   for (const [i, pieza] of piezasActuales(compania).entries()) {
     // Chrome pide permiso una vez para descargas múltiples; con un respiro entre
     // ellas no se come ninguna.
@@ -946,6 +1077,7 @@ async function descargar() {
 // a la siguiente. Al terminar deja seleccionada la compañía que estaba.
 async function exportarTodo() {
   if (!estado.companias.length) return;
+  if (!confirmarDescarga(incompleto(estado.periodo))) return;
   const boton = $('#botonExportarTodo');
   const seleccionPrevia = estado.seleccion;
   const total = estado.companias.length;
@@ -971,8 +1103,7 @@ async function exportarTodo() {
     boton.textContent = 'Comprimiendo…';
     // Los JPG ya van comprimidos: se guardan tal cual, sin volver a comprimir.
     const contenido = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-    const fecha = estado.companias.map((c) => fechaMaxima(c.entregas)).sort().pop();
-    descargarBlob(contenido, `premios-${fecha}.zip`);
+    descargarBlob(contenido, `premios-${sufijoPeriodo()}.zip`);
     $('#avisoPieza').textContent = `${imagenes} imágenes de ${total} compañías en el ZIP`;
   } catch (err) {
     alert(`No se pudo armar el ZIP: ${err.message}`);
@@ -995,39 +1126,24 @@ function descargarBlob(blob, nombre) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-// La etiqueta verde. Al cargar el CSV el campo se llena con los últimos 8 días
-// contando el día en que se cargó el informe, p. ej. «9 Sept - 16 Sept». No
-// depende de las fechas de entrega: es la misma para todas las compañías.
-// Se puede editar; si se deja vacío, vuelve a salir la automática.
+// La etiqueta verde. Al elegir el periodo el campo se llena con sus fechas,
+// p. ej. «5 Oct - 11 Oct»: es la misma para todas las compañías. Se puede
+// editar; si se deja vacío, vuelve a salir la automática.
 function etiquetaDe(compania) {
   const escrita = $('#campoEtiqueta').value.trim();
-  if (escrita || !compania) return escrita;
-  return ultimosDias(estado.fechaInforme || hoyLocal(), 8);
+  if (escrita || !compania || !estado.periodo) return escrita;
+  return fechasDe(estado.periodo);
 }
 
-// Fecha de hoy en la zona horaria del navegador (no en UTC: de noche en Colombia
-// UTC ya va por el día siguiente).
-function hoyLocal() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function ultimosDias(fechaISO, dias) {
-  const [a, m, d] = fechaISO.split('-').map(Number);
-  const fin = new Date(Date.UTC(a, m - 1, d));
-  const inicio = new Date(fin);
-  inicio.setUTCDate(fin.getUTCDate() - (dias - 1));
-  const texto = (f) => `${f.getUTCDate()} ${MESES[f.getUTCMonth()]}`;
-  return `${texto(inicio)} - ${texto(fin)}`;
-}
+const fechasDe = (periodo) => `${diaMes(periodo.inicio)} - ${diaMes(periodo.fin)}`;
 
 // Solo informativo, debajo de la etiqueta: de qué fecha a qué fecha van las
-// entregas de esta compañía en el CSV importado.
+// entregas de esta compañía en el periodo.
 function pintarInfoFechas(compania) {
   const fechas = compania.entregas.map((e) => e.fecha).filter(Boolean).sort();
   const info = $('#infoFechas');
   if (!fechas.length) {
-    info.textContent = 'El informe no trae fechas de entrega';
+    info.textContent = 'Las entregas no traen fecha';
     return;
   }
   const texto = (iso) => {
@@ -1037,8 +1153,8 @@ function pintarInfoFechas(compania) {
   const primera = fechas[0];
   const ultima = fechas[fechas.length - 1];
   info.textContent = primera === ultima
-    ? `Premios del informe: ${texto(primera)}`
-    : `Premios del informe: ${texto(primera)} – ${texto(ultima)}`;
+    ? `Premios del periodo: ${texto(primera)}`
+    : `Premios del periodo: ${texto(primera)} – ${texto(ultima)}`;
 }
 
 function fechaMaxima(entregas) {

@@ -13,7 +13,7 @@
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import {
-  getFirestore, collection, doc, onSnapshot, setDoc, writeBatch,
+  getFirestore, collection, doc, onSnapshot, setDoc, writeBatch, query, where, documentId,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 
 const app = initializeApp({
@@ -27,9 +27,14 @@ const app = initializeApp({
 
 const db = getFirestore(app);
 // Los CSV de las queries del reporte, partidos por query y mes
-// (`public/reporte/datos-guardados.js`).
-export function escucharDatosReporte(alCambiar, alError) {
-  return onSnapshot(collection(db, 'reporteDatos'), (snap) => {
+// (`public/reporte/datos-guardados.js`). Con `consulta`, solo los de esa query
+// (`premios-…`: la pieza para usuarios no necesita el resto).
+export function escucharDatosReporte(alCambiar, alError, consulta = null) {
+  const coleccion = collection(db, 'reporteDatos');
+  const fuente = consulta
+    ? query(coleccion, where(documentId(), '>=', `${consulta}-`), where(documentId(), '<', `${consulta}.`))
+    : coleccion;
+  return onSnapshot(fuente, (snap) => {
     alCambiar(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
   }, alError);
 }

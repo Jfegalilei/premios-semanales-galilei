@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Radio+Canada+Big:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <!-- Rutas relativas: en GitHub Pages la página vive en /premios-semanales-galilei/. -->
   <link rel="stylesheet" href="public/estilos.css">
+  <link rel="stylesheet" href="public/pasos.css">
 </head>
 <body class="usuarios">
   <header class="barra">
@@ -23,16 +24,32 @@
     </nav>
     <label class="boton primario">
       Cargar CSV
-      <input type="file" id="entradaCsv" accept=".csv,text/csv" hidden>
+      <input type="file" id="entradaCsv" accept=".csv,text/csv" multiple hidden>
     </label>
   </header>
 
   <main>
     <p id="avisoNube" class="aviso-nube" hidden></p>
 
-    <section id="zonaVacia" class="soltar">
-      <p>Suelta aquí el export de insights (<code>Compania, Player id, Premio, Fecha entrega, Player</code>)</p>
-      <p class="tenue">o usa el botón «Cargar CSV» de arriba. El archivo se lee en tu navegador y no se sube a ningún lado.</p>
+    <!-- 1 · Query -->
+    <section id="panelConsultas" class="tarjeta paso">
+      <details open>
+        <summary>
+          <span class="numero">1</span>
+          <span class="titulo-paso">Query para Analytics Chat</span>
+          <span class="resumen-paso tenue">Cópiala, pégala en el chat y baja el CSV con «Export», el botón del pie de la respuesta. Es la misma query 2 del reporte para clientes: lo que subas sirve para las dos</span>
+        </summary>
+        <div id="listaConsultas" class="consultas"></div>
+      </details>
+    </section>
+
+    <!-- 2 · CSV -->
+    <section id="zonaVacia" class="soltar paso">
+      <p class="titulo-soltar"><span class="numero">2</span> Suelta aquí el CSV de la query 2</p>
+      <p class="tenue">Queda guardado para todo el equipo; cada mes queda con lo último subido ·
+        también sirve el export de insights (<code>Compania, Player id, Premio, Fecha entrega, Player</code>), que solo se lee en tu navegador</p>
+      <p id="estadoSubida" class="tenue" hidden></p>
+      <div id="estadoArchivos" class="archivos"></div>
     </section>
 
     <section id="panelFaltantes" class="tarjeta oculto">
@@ -58,12 +75,16 @@
 
     <section id="panelTrabajo" class="trabajo oculto">
       <aside class="tarjeta lateral">
-        <h2>Compañías</h2>
+        <h2><span class="numero">3</span> Compañías</h2>
         <ul id="listaCompanias" class="companias"></ul>
       </aside>
 
       <div class="tarjeta principal">
         <div class="controles">
+          <label>
+            <span>Periodo</span>
+            <select id="campoPeriodo"></select>
+          </label>
           <label>
             <span>Cliente</span>
             <input type="text" id="campoKicker" autocomplete="off">
@@ -85,7 +106,7 @@
           </label>
           <label>
             <span>Etiqueta verde</span>
-            <input type="text" id="campoEtiqueta" value="" placeholder="Fechas de la semana (automático)" autocomplete="off">
+            <input type="text" id="campoEtiqueta" value="" placeholder="Fechas del periodo (automático)" autocomplete="off">
             <small id="infoFechas" class="info-fechas"></small>
           </label>
           <label>
@@ -104,6 +125,15 @@
             <button type="button" id="botonExportarTodo" class="boton"
               title="Descarga las imágenes de TODAS las compañías en un ZIP">Exportar todo (ZIP)</button>
             <button type="button" id="botonDescargar" class="boton primario">Descargar JPG</button>
+          </div>
+        </div>
+
+        <div id="alertaIncompleto" class="alerta-incompleto" role="alert" hidden>
+          <span class="icono-alerta" aria-hidden="true">⚠</span>
+          <div>
+            <p class="titulo-alerta"></p>
+            <p class="texto-alerta"></p>
+            <p class="detalle-alerta"></p>
           </div>
         </div>
 

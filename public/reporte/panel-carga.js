@@ -1,13 +1,14 @@
-// Pasos 1 y 2 del reporte para clientes: las queries para Analytics Chat y la
-// zona donde se sueltan los CSV. Solo pinta y avisa; qué hacer con los archivos
-// lo decide quien llama.
+// Pasos 1 y 2 del reporte para clientes (y de la pieza para usuarios, que solo
+// usa la query 2): las queries para Analytics Chat y la zona donde se sueltan
+// los CSV. Solo pinta y avisa; qué hacer con los archivos lo decide quien llama.
 
 import { CONSULTAS, INSTRUCCION } from '../lib/consultas.js';
 
 // Una tarjeta por query: qué trae, cuánto mide, el botón de copiar (ya con la
 // instrucción para el chat delante) y el SQL plegado.
-export function pintarConsultas(contenedor) {
-  contenedor.replaceChildren(...CONSULTAS.map(tarjetaConsulta));
+// `solo`: los ids de las queries que pinta (por defecto, todas).
+export function pintarConsultas(contenedor, solo = null) {
+  contenedor.replaceChildren(...CONSULTAS.filter((c) => !solo || solo.includes(c.id)).map(tarjetaConsulta));
 }
 
 function tarjetaConsulta(c) {
@@ -41,7 +42,8 @@ function tarjetaConsulta(c) {
 
 // Qué datos hay, en pastillas bajo la zona de carga: de cada query, si está y
 // cuándo se subió por última vez (`subidas`, de lo guardado para el equipo).
-export function pintarArchivos(contenedor, datos, { ejemplo = false, subidas = {} } = {}) {
+// `solo`: los ids de las queries que muestra (por defecto, todas).
+export function pintarArchivos(contenedor, datos, { ejemplo = false, subidas = {}, solo = null } = {}) {
   const cuando = (consulta) => {
     const s = subidas[consulta];
     if (!s) return '';
@@ -52,10 +54,10 @@ export function pintarArchivos(contenedor, datos, { ejemplo = false, subidas = {
   };
   const pastillas = [
     ejemplo && [true, 'Ejemplo con datos inventados'],
-    [datos.resumenes.length > 0, `Query 1 · Conocimiento${cuando('conocimiento')}`],
-    [datos.companias.length > 0, `Query 2 · Compañías y premios${cuando('premios')}`],
-    [datos.fichas.length > 0, `Query 3 · Reseñas${cuando('reviews')}`],
-    [datos.autecos.length > 0, `Query 4 · Lotería Auteco${cuando('auteco')}`],
+    (!solo || solo.includes('conocimiento')) && [datos.resumenes.length > 0, `Query 1 · Conocimiento${cuando('conocimiento')}`],
+    (!solo || solo.includes('premios')) && [datos.companias.length > 0, `Query 2 · Compañías y premios${cuando('premios')}`],
+    (!solo || solo.includes('reviews')) && [datos.fichas.length > 0, `Query 3 · Reseñas${cuando('reviews')}`],
+    (!solo || solo.includes('auteco')) && [datos.autecos.length > 0, `Query 4 · Lotería Auteco${cuando('auteco')}`],
   ].filter(Boolean);
   contenedor.replaceChildren(...pastillas.map(([listo, texto]) => {
     const span = document.createElement('span');

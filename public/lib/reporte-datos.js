@@ -423,10 +423,10 @@ export function datosHasta(datos, subidas = {}) {
   const ultima = (filas) => filas.map((f) => f.fecha).filter(Boolean).sort().pop() || null;
   const menor = (...fechas) => fechas.filter(Boolean).sort()[0] || null;
   return {
-    conocimiento: datos.resumenes.length ? menor(alSubir('conocimiento'), ultima(datos.dias)) : null,
-    premios: datos.companias.length ? alSubir('premios') : null,
-    reviews: datos.fichas.length ? alSubir('reviews') : null,
-    auteco: datos.autecos.length ? alSubir('auteco') : null,
+    conocimiento: datos.resumenes?.length ? menor(alSubir('conocimiento'), ultima(datos.dias)) : null,
+    premios: datos.companias?.length ? alSubir('premios') : null,
+    reviews: datos.fichas?.length ? alSubir('reviews') : null,
+    auteco: datos.autecos?.length ? alSubir('auteco') : null,
   };
 }
 

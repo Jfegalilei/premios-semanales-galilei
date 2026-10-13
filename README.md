@@ -1,7 +1,10 @@
 # Premios entregados — generador de la pieza semanal
 
-Convierte el export de insights (`Compania, Player id, Premio, Fecha entrega, Player`)
-en las imágenes de premios de cada compañía.
+Convierte los premios entregados de cada compañía en un periodo (semana o mes) en sus
+imágenes. Los premios salen de la **query 2** del reporte para clientes, guardada en Firestore
+para todo el equipo: funciona como el reporte, pero solo con los premios. También acepta el
+export de insights (`Compania, Player id, Premio, Fecha entrega, Player`), que solo se lee en
+el navegador.
 
 - **Celular** (por defecto): una imagen vertical de 1080 × 1792 con **todos los premios
   juntos** y los ganadores en un solo bloque al pie, pensada para mandar por WhatsApp. Sigue
@@ -17,8 +20,10 @@ Al lado vive el **reporte para clientes** (`reporte.html`): ver [abajo](#reporte
 
 ## Cómo funciona
 
-- La página es **estática** (GitHub Pages). El CSV se lee en el navegador y **no se sube a
-  ningún lado**: trae nombres reales de jugadores.
+- La página es **estática** (GitHub Pages). El CSV de la query 2 se guarda en Firestore
+  (`reporteDatos`, los mismos documentos `premios-…` que usa el reporte para clientes): trae
+  nombres reales de jugadores, que salen en la lista de ganadores. El export de insights, en
+  cambio, solo se lee en el navegador y no se sube a ningún lado.
 - La **biblioteca de premios** (nombre, valor, categoría y recorte) y las **posiciones del
   personaje** viven en **Firestore**, en el mismo proyecto de Firebase que el calendario de
   contenidos (`ciclo-de-contenidos-galilei`), colecciones `premios` y `premiosConfig`. Lo que
@@ -31,12 +36,17 @@ Al lado vive el **reporte para clientes** (`reporte.html`): ver [abajo](#reporte
 
 ## Uso
 
-1. Abre la web y suelta el CSV (o «Cargar CSV»).
-2. Si algún premio no tiene recorte, aparece **Premios sin imagen**: suelta el PNG sin fondo,
+1. **Paso 1**: copia la query, pégala en Analytics Chat y baja el CSV con el «Export» del pie
+   de la respuesta. **Paso 2**: suéltalo en la página (o «Cargar CSV»); queda guardado para el
+   equipo. Si alguien ya la subió (aquí o en el reporte para clientes), no hace falta.
+2. Elige el **periodo**: por defecto, la última semana terminada y completa. La etiqueta verde
+   se llena con sus fechas. Si el periodo pasa del último día que traen los datos (el anterior
+   a la subida), sale una **alerta roja de datos incompletos** y descargar pide confirmar.
+3. Si algún premio no tiene recorte, aparece **Premios sin imagen**: suelta el PNG sin fondo,
    ajusta nombre, valor y categoría y pulsa Guardar. En **Biblioteca de premios** están todos
    los del catálogo para reemplazar recortes o corregir datos.
-3. Elige la compañía, ajusta encabezado / título / etiqueta y la composición.
-4. **Descargar JPG** baja las imágenes de esa compañía; **Exportar todo (ZIP)** arma un ZIP con
+4. Elige la compañía, ajusta encabezado / título / etiqueta y la composición.
+5. **Descargar JPG** baja las imágenes de esa compañía; **Exportar todo (ZIP)** arma un ZIP con
    las de todas.
 
 En collage, el personaje se puede **arrastrar por la vista previa**; la posición queda guardada
@@ -66,7 +76,9 @@ lo editado desde la web.
 | `Assets/Personajes/` | Las poses de Gali en WebP, listadas en `lista.json`. Una sale en cada pieza. |
 | `Assets/Fondos/` | Escenarios recortados a 1080 × 1792 para la pieza de celular, listados en `lista.json`. |
 | `Assets/Iconos/` | `trofeo.webp`, el icono 3D de la cabecera de la pieza de celular. |
-| `public/app.js` | Orquestación: CSV, biblioteca, vista previa y descargas. |
+| `public/app.js` | Orquestación: query 2 guardada, periodo, biblioteca, vista previa y descargas. |
+| `public/lib/incompleto.js` | Periodos con días sin datos: el cálculo, la alerta roja y la confirmación al descargar (las dos herramientas). |
+| `public/pasos.css` | Estilos que comparten las dos herramientas: pasos, queries, zona de CSV, avisos y alerta. |
 | `public/lib/nube.js` | Conexión con Firestore. |
 | `public/lib/csv.js` | Parseo del export (BOM, comillas, acentos). |
 | `public/lib/normalizador.js` | Texto libre del premio → familia del catálogo. |
@@ -372,11 +384,10 @@ El personaje **no cuenta como obstáculo para las líneas punteadas**: eligen su
 si no estuviera y le pasan por encima si les conviene. Es decoración de fondo, y hacer que
 lo esquivaran obligaba a las líneas a dar rodeos peores que el cruce que evitaban.
 
-**Cada carga del CSV reparte los personajes de nuevo**: al leer el archivo se saca una
-tirada al azar que entra en la semilla, así que dos semanas seguidas no le tocan los mismos
-bichos a las mismas compañías. Dentro de una misma carga la tirada no cambia, y por eso la
-vista previa no muda de personaje a cada repintado — con `Math.random()` a secas sería
-imposible trabajar.
+**Cada periodo reparte los personajes de nuevo**: el periodo elegido entra en la semilla,
+así que dos semanas seguidas no le tocan los mismos bichos a las mismas compañías. Dentro de
+un periodo no cambian, ni a cada repintado ni al volver a abrir la página — con
+`Math.random()` a secas sería imposible trabajar.
 
 ## El archivo de salida
 

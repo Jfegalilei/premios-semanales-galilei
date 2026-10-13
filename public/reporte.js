@@ -11,9 +11,10 @@
 //   reporte/exportar.js     PDF, ZIP y descarga
 //   lib/reporte-datos.js    de los CSV a las cifras de cada hoja
 
+import { periodosEntre, hoyLocal, inicioMesAnterior } from './lib/periodos.js';
 import {
-  periodosEntre, hoyLocal, inicioMesAnterior, sumarDias, diaMes, diaMesLargo,
-} from './lib/periodos.js';
+  faltaEn, notaIncompleto, pintarAlerta, confirmarDescarga, NOMBRES_CONSULTA,
+} from './lib/incompleto.js';
 import { csvDeEjemplo } from './lib/reporte-demo.js';
 import {
   interpretarArchivo, interpretarTabla, conocimiento, premiosEntregados, reviews, loteria, loteriaAuteco, loteriaResenas, servicios,
@@ -296,9 +297,6 @@ async function leerArchivos(archivos) {
   alCambiarDatos();
 }
 
-const NOMBRES_CONSULTA = {
-  conocimiento: 'Query 1', premios: 'Query 2', reviews: 'Query 3', auteco: 'Query 4',
-};
 const nombreMesCorto = (mes) => new Date(`${mes}-15T12:00:00`).toLocaleString('es-CO', { month: 'long' });
 
 function aviso(texto) {
@@ -324,7 +322,7 @@ function periodosConDatos() {
 // sin `r`, de todas las cargadas). Si alguna no llega al final del periodo, el
 // reporte sale con días de menos: `{ hasta, desde, faltan, queries }`; si no, null.
 function incompleto(periodo, r = null) {
-  if (!periodo || estado.ejemplo) return null;
+  if (estado.ejemplo) return null;
   const hasta = datosHasta(estado.datos, estado.subidas);
   const usadas = r
     ? [
@@ -333,14 +331,7 @@ function incompleto(periodo, r = null) {
       ...(r.loterias.some((l) => l.tipo === 'auteco') ? ['auteco'] : []),
     ]
     : Object.keys(hasta);
-  const cortas = usadas.filter((q) => hasta[q] && hasta[q] < periodo.fin);
-  if (!cortas.length) return null;
-  const corte = cortas.map((q) => hasta[q]).sort()[0];
-  const desde = corte < periodo.inicio ? periodo.inicio : sumarDias(corte, 1);
-  const faltan = Math.round((Date.parse(periodo.fin) - Date.parse(desde)) / 864e5) + 1;
-  return {
-    hasta: corte, desde, faltan, queries: cortas.map((q) => ({ nombre: NOMBRES_CONSULTA[q], hasta: hasta[q] })),
-  };
+  return faltaEn(periodo, hasta, usadas);
 }
 
 function alCambiarDatos() {
@@ -383,7 +374,7 @@ function pintarPeriodos() {
       .map((p) => {
         const falta = incompleto(p);
         const nota = !conDatos.has(clavePeriodo(p.tipo, p.inicio)) ? ' · sin datos'
-          : falta ? ` · ⚠ INCOMPLETO (datos hasta ${diaMes(falta.hasta)})`
+          : falta ? notaIncompleto(falta)
             : p.parcial ? ' (parcial)' : '';
         return `<option value="${p.id}">${p.nombre}${nota}</option>`;
       }).join('');
@@ -519,35 +510,16 @@ function pintar() {
 // El aviso grande de días sin cargar: el reporte saldría con cifras de menos y
 // con pinta de correcto, así que no puede quedar entre los avisos chicos.
 function pintarIncompleto(r) {
-  const caja = $('#alertaIncompleto');
-  const falta = r ? incompleto(r.periodo, r) : null;
-  caja.hidden = !falta;
-  $('#panelTrabajo .principal').classList.toggle('con-alerta', Boolean(falta));
-  if (!falta) return;
-  const { periodo } = r;
-  const rango = `El periodo va del ${diaMesLargo(periodo.inicio)} al ${diaMesLargo(periodo.fin)}, `
-    + `pero los datos cargados llegan solo hasta el ${diaMesLargo(falta.hasta)}`;
-  const dias = falta.faltan === 1 ? `el ${diaMesLargo(falta.desde)}` : `del ${diaMesLargo(falta.desde)} al ${diaMesLargo(periodo.fin)}`;
-  const queHacer = periodo.fin >= hoyLocal()
-    ? 'El periodo aún no termina: espera a que acabe y vuelve a subir los CSV antes de mandar el PDF.'
-    : 'Vuelve a correr las queries (paso 1) y sube los CSV (paso 2) antes de mandar el PDF.';
-  $('#alertaIncompleto .titulo-alerta').textContent = `Datos incompletos: ${falta.faltan === 1 ? 'falta 1 día' : `faltan ${falta.faltan} días`}`;
-  $('#alertaIncompleto .texto-alerta').textContent = falta.hasta < periodo.inicio
-    ? `${rango}: no hay ningún día de este periodo. ${queHacer}`
-    : `${rango}. Las cifras no incluyen ${dias}. ${queHacer}`;
-  $('#alertaIncompleto .detalle-alerta').textContent = falta.queries
-    .map((q) => `${q.nombre}: hasta el ${diaMes(q.hasta)}`).join(' · ');
+  pintarAlerta($('#alertaIncompleto'), {
+    periodo: r?.periodo,
+    falta: r ? incompleto(r.periodo, r) : null,
+    marco: $('#panelTrabajo .principal'),
+    queHacer: 'Vuelve a correr las queries (paso 1) y sube los CSV (paso 2)',
+  });
 }
 
 // Antes de bajar un PDF (o el ZIP) con días sin cargar, que lo confirme.
-function confirmarIncompleto(r) {
-  const falta = incompleto(estado.periodo, r);
-  if (!falta) return true;
-  return confirm(
-    `⚠ Los datos de este periodo están incompletos: llegan solo hasta el ${diaMesLargo(falta.hasta)} `
-    + `y faltan ${falta.faltan} ${falta.faltan === 1 ? 'día' : 'días'}.\n\n¿Descargar de todos modos?`,
-  );
-}
+const confirmarIncompleto = (r) => confirmarDescarga(incompleto(estado.periodo, r));
 
 function pintarAvisos(lista) {
   $('#avisoReporte').replaceChildren(...lista.map(({ texto, info }) => {
