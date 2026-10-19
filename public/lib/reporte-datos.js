@@ -287,9 +287,12 @@ export function reviews(datos, compania, periodo) {
     top: datos.embajadores.filter(delPeriodo(compania, periodo))
       .sort((a, b) => b.reviews - a.reviews)
       .slice(0, 3)
-      .map((e) => ({ ...e, nombre: e.nombre || 'Empleado sin nombre registrado' })),
+      // Sin nombre registrado: el puesto que ocupa en el top.
+      .map((e, i) => ({ ...e, nombre: e.nombre || `${PUESTOS[i]} Puesto` })),
   };
 }
+
+const PUESTOS = ['Primer', 'Segundo', 'Tercer'];
 
 const enPeriodo = (periodo) => (f) => f.fecha >= periodo.inicio && f.fecha <= periodo.fin;
 const delPeriodo = (compania, periodo) => (f) => (
