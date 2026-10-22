@@ -255,14 +255,15 @@ function paginasDe(r) {
   const listas = [
     {
       nombre: 'Reclamados',
-      titulo: 'Premios\nreclamados',
+      // En un renglón: sin Gali, el título tiene todo el ancho.
+      titulo: 'Premios reclamados',
       subtitulo: entregas ? `${entregas} premios · ${dineros(totales)}` : '',
       items: itemsReclamados(r.reclamados),
       vacio: 'Todavía nadie ha reclamado premios',
     },
     {
       nombre: 'Catálogo',
-      titulo: 'Catálogo\nactual',
+      titulo: 'Catálogo actual',
       subtitulo: catalogo,
       items: itemsCatalogo(r.disponibles, r.catalogo.renovacion),
       vacio: 'No hay premios activos en el catálogo',

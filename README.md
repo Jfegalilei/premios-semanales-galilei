@@ -595,9 +595,11 @@ reporte para clientes. No va por periodo: es la foto del día en que se corren l
 3. **Catálogo actual**: los premios activos por nivel (Bronce, Plata, Oro) con su costo y
    cuántas unidades trae en total cada mes (el `stock` de `catalog_prize`, que es por periodo del
    catálogo; sin stock, «sin límite»). No se dice cuántas quedan. Bajo el título, el presupuesto
-   del catálogo y cada cuánto se renueva. Los premios **«Coming soon»** no salen: la query los
-   quita si lo dicen el nombre, el nombre interno o el tipo, y la página los vuelve a filtrar por
-   nombre.
+   del catálogo y cada cuánto se renueva. Los Bonos Nequi salen con su monto
+   (`catalog_prize.quantity`). Los premios **«Coming soon»** no salen: la query los quita si lo
+   dicen el nombre, el nombre interno o el tipo, y además manda el premio entero en JSON para que
+   la página los busque en cualquier campo (un texto «Coming soon» / `COMING_SOON` o una columna
+   con ese nombre prendida).
 
 Los datos salen de **dos queries** (`public/lib/consultas-presupuesto.js`), sin parámetros:
 

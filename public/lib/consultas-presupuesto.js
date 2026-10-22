@@ -9,10 +9,12 @@
 //   catalogo     n1 presupuesto del catálogo (`prize_catalog.budget`), t1 moneda,
 //                t2 cada cuánto se renueva (`renovation_period`)
 //   disponible   n1 costo, n2 stock (unidades por periodo del catálogo), n3
-//                reclamados en el periodo (`catalog_prize.redeemed`; no se muestra),
-//                t1 nombre, t2 tipo, t3 moneda, t4 nivel   (los premios activos del
-//                catálogo, sin los «Coming soon»: ni en el nombre, ni en el nombre
-//                interno, ni en el tipo)
+//                cantidad (`catalog_prize.quantity`: el monto del Bono Nequi),
+//                t1 nombre, t2 tipo, t3 moneda, t4 nivel, t5 el premio entero en
+//                JSON (`catalog_prize` + `prize`)   (los premios activos del
+//                catálogo, sin los «Coming soon». La query quita los que lo dicen
+//                en el nombre, el nombre interno o el tipo; el navegador busca
+//                además en el JSON, por si va en otra columna)
 //   especial     fecha de entrega, player_id, n1 costo, t1 estado,
 //                t2 la rifa que lo sorteó (`lottery_run`, en JSON), t3 el premio
 //                especial entero (`special_reward`, en JSON): la vista documentada
@@ -34,10 +36,10 @@ export const CONSULTAS_PRESUPUESTO = [
     titulo: 'Query A · Presupuesto, catálogo y Especiales',
     descripcion: 'Presupuesto actual de cada compañía, los premios activos de su catálogo y los premios Especiales.',
     sql: `WITH c AS(SELECT company_id ci,name co FROM company)
-SELECT 'presupuesto' tipo,co compania,(b.updated_at-INTERVAL '5 hours')::date fecha,NULL::uuid player_id,b.amount::numeric n1,b.lottery_amount::numeric n2,NULL::numeric n3,b.currency::text t1,NULL t2,NULL t3,NULL t4 FROM company_reward_budget b JOIN c ON ci=b.company_id
-UNION ALL SELECT 'catalogo',co,NULL,NULL,k.budget,NULL,NULL,k.currency::text,k.renovation_period::text,NULL,NULL FROM prize_catalog k JOIN c ON ci=k.company_id
-UNION ALL SELECT 'disponible',co,NULL,NULL,cp.cost,cp.stock,cp.redeemed,COALESCE(p.name->>'es',p.internal_name),p.prize_type::text,cp.currency::text,cp.level::text FROM catalog_prize cp JOIN prize_catalog k ON k.prize_catalog_id=cp.prize_catalog_id JOIN prize p ON p.prize_id=cp.prize_id JOIN c ON ci=k.company_id WHERE cp.active AND cp.disabled_at IS NULL AND p.active AND p.deleted_at IS NULL AND CONCAT(p.name::text,' ',p.internal_name,' ',p.prize_type) NOT ILIKE '%coming%soon%'
-UNION ALL SELECT 'especial',co,s.delivered_date::date,s.player_id,s.cost,NULL,NULL,s.status::text,(SELECT to_jsonb(l)::text FROM lottery_run l WHERE l.special_reward_id=s.special_reward_id LIMIT 1),to_jsonb(s)::text,NULL FROM special_reward s JOIN c ON ci=s.company_id WHERE s.deleted_at IS NULL`,
+SELECT 'presupuesto' tipo,co compania,(b.updated_at-INTERVAL '5 hours')::date fecha,NULL::uuid player_id,b.amount::numeric n1,b.lottery_amount::numeric n2,NULL::numeric n3,b.currency::text t1,NULL t2,NULL t3,NULL t4,NULL t5 FROM company_reward_budget b JOIN c ON ci=b.company_id
+UNION ALL SELECT 'catalogo',co,NULL,NULL,k.budget,NULL,NULL,k.currency::text,k.renovation_period::text,NULL,NULL,NULL FROM prize_catalog k JOIN c ON ci=k.company_id
+UNION ALL SELECT 'disponible',co,NULL,NULL,cp.cost,cp.stock,cp.quantity,COALESCE(p.name->>'es',p.internal_name),p.prize_type::text,cp.currency::text,cp.level::text,(to_jsonb(cp)||to_jsonb(p))::text FROM catalog_prize cp JOIN prize_catalog k ON k.prize_catalog_id=cp.prize_catalog_id JOIN prize p ON p.prize_id=cp.prize_id JOIN c ON ci=k.company_id WHERE cp.active AND cp.disabled_at IS NULL AND p.active AND p.deleted_at IS NULL AND CONCAT(p.name::text,' ',p.internal_name,' ',p.prize_type) NOT ILIKE '%coming%soon%'
+UNION ALL SELECT 'especial',co,s.delivered_date::date,s.player_id,s.cost,NULL,NULL,s.status::text,(SELECT to_jsonb(l)::text FROM lottery_run l WHERE l.special_reward_id=s.special_reward_id LIMIT 1),to_jsonb(s)::text,NULL,NULL FROM special_reward s JOIN c ON ci=s.company_id WHERE s.deleted_at IS NULL`,
   },
   {
     id: 'reclamados',

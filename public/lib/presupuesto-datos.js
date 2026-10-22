@@ -8,7 +8,24 @@ import { MESES, MESES_LARGOS } from './periodos.js';
 
 // Premios anunciados que aún no se pueden reclamar: no salen en el catálogo. La
 // query ya los quita; esto cubre los CSV bajados antes del filtro.
-const PROXIMAMENTE = /coming\s*soon|pr[oó]ximamente/i;
+const PROXIMAMENTE = /coming[\s_-]*soon|pr[oó]ximamente/i;
+
+// Un premio del catálogo es «Coming soon» si lo dice su nombre o su tipo, o
+// cualquier campo del premio entero (t5, en JSON): un texto que lo diga o una
+// columna con ese nombre prendida (`coming_soon: true`).
+function esProximamente(r) {
+  if (PROXIMAMENTE.test(`${r.t1} ${r.t2}`)) return true;
+  if (vacio(r.t5)) return false;
+  let fila;
+  try { fila = JSON.parse(r.t5); } catch { return PROXIMAMENTE.test(r.t5); }
+  const revisar = (valor, clave = '') => {
+    if (PROXIMAMENTE.test(clave)) return valor === true || valor === 'true' || valor === 1;
+    if (typeof valor === 'string') return PROXIMAMENTE.test(valor);
+    if (valor && typeof valor === 'object') return Object.entries(valor).some(([k, v]) => revisar(v, k));
+    return false;
+  };
+  return revisar(fila);
+}
 
 // Los reclamos que no llegaron a nada no cuentan. Los estados exactos de
 // `reward` no están documentados: se descarta por palabra.
@@ -106,13 +123,12 @@ export function interpretarPresupuesto(registros) {
     } else if (r.tipo === 'catalogo') {
       datos.catalogos.push({ ...base, presupuesto: aNumero(r.n1), moneda: r.t1 || 'COP', renovacion: r.t2 || '' });
     } else if (r.tipo === 'disponible') {
-      if (PROXIMAMENTE.test(`${r.t1} ${r.t2}`)) continue;
+      if (esProximamente(r)) continue;
       datos.disponibles.push({
         ...base,
         costo: aNumero(r.n1),
         stock: vacio(r.n2) ? null : aNumero(r.n2),
-        reclamados: aNumero(r.n3),
-        nombre: nombreDelPremio(r.t1, r.t2, 0),
+        nombre: nombreDelPremio(r.t1, r.t2, r.n3),
         tipo: r.t2 || '',
         moneda: r.t3 || 'COP',
         nivel: r.t4 || '',
@@ -346,7 +362,7 @@ export function registrosDeEjemplo(hoy) {
   fila({ tipo: 'presupuesto', fecha: dias(3), n1: '4800000', n2: '600000', t1: 'COP' });
   fila({ tipo: 'catalogo', n1: '1500000', t1: 'COP', t2: 'MONTHLY' });
   [
-    ['Bono Nequi de ${quantity} pesos', 'NEQUI', 20000, '', 0, '0'],
+    ['Bono Nequi de ${quantity} pesos', 'NEQUI', 20000, '', 20000, '0'],
     ['Netflix 1 mes', 'STANDARD', 35000, 10, 4, '0'],
     ['CinecoPass 2D x2', 'STANDARD', 40000, 8, 8, '0'],
     ['Audífonos Xiaomi Redmi Buds', 'STANDARD', 150000, 5, 2, '1'],
@@ -354,7 +370,9 @@ export function registrosDeEjemplo(hoy) {
     ['Freidora de Aire', 'STANDARD', 400000, 2, 1, '2'],
     ['Barril Ahumador', 'STANDARD', 700000, 1, 0, '2'],
     ['Coming soon', 'STANDARD', 0, '', 0, '2'],
+    ['Bono Nequi de ${quantity} pesos', 'NEQUI', 50000, '', 50000, '1'],
   ].forEach(([t1, t2, n1, n2, n3, t4]) => fila({ tipo: 'disponible', n1: String(n1), n2: String(n2), n3: String(n3), t1, t2, t3: 'COP', t4 }));
+  fila({ tipo: 'disponible', n1: '90000', n2: '2', t1: 'Parlante JBL', t2: 'STANDARD', t3: 'COP', t4: '1', t5: '{"internal_name":"jbl","status":"COMING_SOON"}' });
 
   const gente = ['LAURA GOMEZ', 'andres restrepo', 'Camila Torres', 'Julián Ospina', 'Valentina Ríos', 'Santiago Mejía',
     'Daniela Cárdenas', 'Felipe Arango', 'Mariana López', 'Tomás Herrera', 'Sara Jiménez', 'Mateo Castaño'];
