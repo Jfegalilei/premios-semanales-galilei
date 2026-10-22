@@ -229,15 +229,15 @@ function paginasDe(r) {
     kicker: r.cliente,
     logoCliente: r.logoCliente,
     logo: estado.logo,
-    etiqueta: `Al ${diaMes(estado.hoy)} ${estado.hoy.slice(0, 4)}`,
+    etiqueta: `${diaMes(estado.hoy)} ${estado.hoy.slice(0, 4)}`,
     trofeo: null,
     tituloCompleto: true,
   };
   const paginas = [{
-    nombre: 'Presupuesto',
+    nombre: 'Resumen de incentivos',
     dibujar: (lienzo, fondo) => dibujarResumen(lienzo, {
       ...comunes,
-      titulo: 'Presupuesto\nde premios',
+      titulo: 'Resumen\nde incentivos',
       personaje: personajeDe(estado.personajes, `${semilla}|resumen`),
       fondo,
       datos: r,

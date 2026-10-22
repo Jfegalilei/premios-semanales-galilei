@@ -583,7 +583,7 @@ Una lotería nueva es una entrada en `LOTERIAS`; una hoja nueva, una entrada en 
 `presupuesto.html` arma, por compañía, un **PDF aparte** con las mismas hojas de celular del
 reporte para clientes. No va por periodo: es la foto del día en que se corren las queries.
 
-1. **Presupuesto de premios**: el presupuesto actual (`company_reward_budget.amount`, y cuándo
+1. **Resumen de incentivos**: el presupuesto actual (`company_reward_budget.amount`, y cuándo
    se actualizó; lo de loterías, `lottery_amount`, ya no sale), lo reclamado del catálogo desde el inicio,
    el total de los premios Especiales y lo más reclamado. Al pie de la tarjeta del presupuesto va
    una nota fija, igual para todas las compañías (`NOTA_LOTERIA` en `hoja-presupuesto.js`): antes
