@@ -244,8 +244,11 @@ function paginasDe(r) {
     }),
   }];
 
-  const catalogo = Object.keys(r.catalogo.presupuesto).length
-    ? `Costo total del catálogo: ${dineros(r.catalogo.presupuesto)}${r.catalogo.renovacion ? ` ${r.catalogo.renovacion}` : ''}`
+  // Bajo el título, el costo real del catálogo completo: costo × unidades de
+  // cada premio, al mes. Los premios sin límite no entran en la suma (lo avisa la página).
+  const { costoReal, renovacion } = r.catalogo;
+  const catalogo = Object.keys(costoReal).length
+    ? `Costo real del catálogo: ${dineros(costoReal)}${renovacion ? ' cada mes' : ''}`
     : '';
   // Reclamados lleva también los Especiales: el subtítulo los cuenta.
   const meses = r.reclamados.meses;
@@ -344,6 +347,9 @@ function avisos(r) {
     if (n >= TOPE_CHAT - 1) lista.push({ texto: `La ${NOMBRES[consulta]} llegó al tope de ${TOPE_CHAT.toLocaleString('es-CO')} filas del chat: pueden faltar datos` });
   }
   if (estado.partes.presupuesto && !r.presupuesto) lista.push({ texto: 'Esta compañía no tiene presupuesto en la base' });
+  if (r.catalogo.sinLimite) {
+    lista.push({ info: true, texto: `${r.catalogo.sinLimite} premios del catálogo no tienen límite de unidades: no entran en el costo real` });
+  }
   const sinNombre = r.especiales.lista.filter((e) => /^Premio (especial|de lotería)$/.test(e.nombre)).length;
   if (sinNombre) lista.push({ info: true, texto: `${sinNombre} premios Especiales salen sin nombre: la base no trae uno` });
   return lista;

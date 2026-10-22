@@ -596,11 +596,12 @@ reporte para clientes. No va por periodo: es la foto del día en que se corren l
    en varias hojas si no cabe, y la hoja que sigue a medio mes repite su título («Abril 2026 ·
    continúa»).
 3. **Catálogo actual**: los premios activos por nivel (Bronce, Plata, Oro) con cuántas unidades
-   trae cada mes (el `stock` de `catalog_prize`; sin stock, «sin límite»). Ni el costo de cada
-   premio ni cuántas quedan: bajo el título va solo el **costo total del catálogo**
-   (`prize_catalog.budget`). Todo se dice **por mes**: el stock y el presupuesto son por periodo
-   del catálogo (`renovation_period`), así que se pasan a mes; un catálogo semanal cuenta **4
-   semanas por mes** (`VECES_AL_MES` en `presupuesto-datos.js`). Los Bonos Nequi salen con su monto
+   trae cada mes («32/Mes»: el `stock` de `catalog_prize`; sin stock, «Sin límite»). Ni el costo
+   de cada premio ni cuántas quedan: bajo el título va solo el **costo real del catálogo**, la
+   suma del costo de cada premio por sus unidades del mes. Los premios sin límite no entran en esa
+   suma, y la página lo avisa. Todo se dice **por mes**: el stock es por renovación, y la plataforma
+   renueva el catálogo **cada 15 días**, así que se multiplica por 2 (`RENOVACIONES_AL_MES` en
+   `presupuesto-datos.js`, igual para todas las compañías; no sale de `renovation_period`). Los Bonos Nequi salen con su monto
    (`catalog_prize.quantity`). Los premios **«Coming soon»** no salen: la query los quita si lo
    dicen el nombre, el nombre interno o el tipo, y además manda el premio entero en JSON para que
    la página los busque en cualquier campo (un texto «Coming soon» / `COMING_SOON` o una columna

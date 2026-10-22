@@ -277,7 +277,8 @@ export function itemsCatalogo(niveles, renovacion = '') {
     for (const p of n.premios) {
       let dato = 'Sin límite';
       if (p.unidades != null) {
-        dato = `${entero(p.unidades)} ${p.unidades === 1 ? 'unidad' : 'unidades'} ${renovacion || 'por periodo'}`;
+        // Corto: «32/Mes». Sin periodo reconocible, solo el número.
+        dato = renovacion ? `${entero(p.unidades)}/Mes` : entero(p.unidades);
       }
       items.push({ tipo: 'fila', titulo: p.nombre, dato });
     }

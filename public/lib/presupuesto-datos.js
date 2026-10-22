@@ -44,16 +44,10 @@ const NIVELES = [
   { id: 'oro', nombre: 'Catálogo Oro', es: /^(2|gold|oro)$/i },
 ];
 
-// Cuántas veces se renueva el catálogo en un mes, según `renovation_period`. El
-// reporte lo dice todo por mes: un catálogo semanal cuenta 4 semanas por mes
-// (cifras redondas; en un mes de 5 semanas se queda un poco corto).
-const VECES_AL_MES = [
-  [/day|dia|diar/i, 30],
-  [/week|seman/i, 4],
-  [/quarter|trimes|3 mon/i, 1 / 3],
-  [/year|anual|12 mon/i, 1 / 12],
-  [/mon|mes/i, 1],
-];
+// Cuántas veces se renueva el catálogo en un mes. La plataforma lo renueva cada
+// 15 días, así que son 2, para todas las compañías: el reporte lo dice todo por
+// mes. No se toma de `renovation_period`, que no refleja lo que de verdad entrega.
+const RENOVACIONES_AL_MES = 2;
 
 const vacio = (t) => t == null || String(t).trim() === '';
 
@@ -233,13 +227,13 @@ export function presupuestoDe(datos, compania) {
 
   // Catálogos de la compañía: sus presupuestos por periodo, sumados por moneda.
   const catalogos = de(datos.catalogos);
-  // Todo pasado a mes. Sin periodo reconocible no se convierte y no se dice «al mes».
+  // Todo pasado a mes (ver `RENOVACIONES_AL_MES`).
   const presupuestoCatalogo = {};
   for (const c of catalogos) {
-    if (c.presupuesto) sumarEn(presupuestoCatalogo, c.moneda, c.presupuesto * (vecesAlMes(c.renovacion) ?? 1));
+    if (c.presupuesto) sumarEn(presupuestoCatalogo, c.moneda, c.presupuesto * RENOVACIONES_AL_MES);
   }
-  const factor = catalogos.map((c) => vecesAlMes(c.renovacion)).find((v) => v != null) ?? null;
-  const renovacion = factor == null ? '' : 'cada mes';
+  const factor = RENOVACIONES_AL_MES;
+  const renovacion = 'cada mes';
 
   // Reclamados del catálogo: por premio (para «Lo más reclamado») y, para su
   // hoja, por mes junto con los Especiales.
@@ -264,7 +258,7 @@ export function presupuestoDe(datos, compania) {
       niveles.set(id, { id, nombre: nivel?.nombre || (d.nivel ? `Catálogo ${d.nivel}` : 'Catálogo'), premios: [] });
     }
     // Las unidades del mes (el stock del periodo del catálogo, pasado a mes), no las que quedan.
-    const unidades = d.stock == null ? null : Math.round(d.stock * (factor ?? 1));
+    const unidades = d.stock == null ? null : Math.round(d.stock * factor);
     niveles.get(id).premios.push({ nombre: d.nombre, costo: d.costo, moneda: d.moneda, unidades });
   }
   const orden = (id) => {
@@ -274,6 +268,18 @@ export function presupuestoDe(datos, compania) {
   const disponibles = [...niveles.values()]
     .sort((a, b) => orden(a.id) - orden(b.id) || a.nombre.localeCompare(b.nombre, 'es'))
     .map((n) => ({ ...n, premios: n.premios.sort((a, b) => b.costo - a.costo || a.nombre.localeCompare(b.nombre, 'es')) }));
+
+  // Costo real del catálogo al mes: costo de cada premio por sus unidades del
+  // mes. Los que no tienen tope de unidades (Bonos Nequi sin stock) no se pueden
+  // sumar: se cuentan aparte para decirlo.
+  const costoReal = {};
+  let sinLimite = 0;
+  for (const n of disponibles) {
+    for (const p of n.premios) {
+      if (p.unidades == null) sinLimite += 1;
+      else sumarEn(costoReal, p.moneda, p.costo * p.unidades);
+    }
+  }
 
   // Especiales: los más recientes primero.
   const especiales = de(datos.especiales)
@@ -314,7 +320,7 @@ export function presupuestoDe(datos, compania) {
 
   return {
     presupuesto,
-    catalogo: { presupuesto: presupuestoCatalogo, renovacion },
+    catalogo: { presupuesto: presupuestoCatalogo, renovacion, costoReal, sinLimite },
     reclamados: { premios, entregas, desde, totales: totalReclamado, meses },
     disponibles,
     especiales: { lista: especiales, totales: totalEspeciales },
@@ -345,12 +351,6 @@ function agruparPorPremio(filas) {
         .sort((a, b) => b.veces - a.veces || a.nombre.localeCompare(b.nombre, 'es')),
     }))
     .sort((a, b) => b.conteo - a.conteo || b.total - a.total);
-}
-
-function vecesAlMes(texto) {
-  if (vacio(texto)) return null;
-  const hit = VECES_AL_MES.find(([re]) => re.test(texto));
-  return hit ? hit[1] : null;
 }
 
 /* ---------- datos de ejemplo ---------- */
