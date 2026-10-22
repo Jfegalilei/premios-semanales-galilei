@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Presupuesto de premios · Generador</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Radio+Canada+Big:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="public/estilos.css">
+  <link rel="stylesheet" href="public/pasos.css">
+  <link rel="stylesheet" href="public/reporte.css">
+</head>
+<body class="clientes">
+  <header class="barra">
+    <div>
+      <span class="modo">Clientes</span>
+      <h1>Presupuesto de premios</h1>
+      <p class="sub">Un PDF por compañía: presupuesto actual, premios reclamados desde el inicio, catálogo actual y premios Especiales</p>
+    </div>
+    <nav class="selector" aria-label="Cambiar de herramienta">
+      <a href="index.html"><span class="punto usuarios"></span>Para usuarios<small>Pieza semanal de premios</small></a>
+      <a href="reporte.html"><span class="punto clientes"></span>Para clientes<small>Reporte en PDF</small></a>
+      <a href="presupuesto.html" aria-current="page"><span class="punto clientes"></span>Presupuesto<small>Premios y catálogo</small></a>
+    </nav>
+    <label class="boton primario">
+      Cargar CSV
+      <input type="file" id="entradaCsv" accept=".csv,text/csv" multiple hidden>
+    </label>
+  </header>
+
+  <main class="reporte">
+    <p id="avisoNube" class="aviso-nube" hidden></p>
+
+    <!-- 1 · Queries -->
+    <section id="panelConsultas" class="tarjeta paso">
+      <details open>
+        <summary>
+          <span class="numero">1</span>
+          <span class="titulo-paso">Queries para Analytics Chat</span>
+          <span class="resumen-paso tenue">Copia cada una, pégala en el chat y baja el CSV con «Export», el botón del pie de la respuesta</span>
+        </summary>
+        <div id="listaConsultas" class="consultas"></div>
+      </details>
+    </section>
+
+    <!-- 2 · CSV -->
+    <section id="zonaVacia" class="soltar paso">
+      <p class="titulo-soltar"><span class="numero">2</span> Suelta aquí los CSV <span class="tenue">(juntos o de a uno)</span></p>
+      <p class="tenue">Se leen solo en este navegador: no se guardan para el equipo ·
+        <button type="button" id="botonEjemplo" class="enlace">ver ejemplo con datos inventados</button></p>
+      <div id="estadoArchivos" class="archivos"></div>
+    </section>
+
+    <!-- 3 · Reporte -->
+    <section id="panelTrabajo" class="trabajo oculto">
+      <aside class="tarjeta lateral">
+        <h2><span class="numero">3</span> Compañías</h2>
+        <ul id="listaCompanias" class="companias"></ul>
+      </aside>
+
+      <div class="tarjeta principal">
+        <div class="controles">
+          <label title="El nombre que sale en el PDF. Es el mismo del reporte para clientes y se guarda para todo el equipo">
+            <span>Nombre del cliente</span>
+            <input type="text" id="campoCliente" autocomplete="off">
+          </label>
+          <div class="acciones">
+            <button type="button" id="botonExportarTodo" class="boton"
+              title="Un PDF por compañía, en un ZIP">Exportar todo (ZIP)</button>
+            <button type="button" id="botonDescargar" class="boton primario">Descargar PDF</button>
+          </div>
+        </div>
+        <ul id="avisoReporte" class="avisos"></ul>
+        <div id="vistaHojas" class="vista carrusel"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="module" src="public/presupuesto.js"></script>
+</body>
+</html>

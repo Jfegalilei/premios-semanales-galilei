@@ -578,6 +578,60 @@ El código de la página está partido por responsabilidad:
 Una lotería nueva es una entrada en `LOTERIAS`; una hoja nueva, una entrada en `HOJAS` (con
 `aplica` y `paginas`). Ninguna de las dos pide tocar `reporte.js`.
 
+## Presupuesto de premios
+
+`presupuesto.html` arma, por compañía, un **PDF aparte** con las mismas hojas de celular del
+reporte para clientes. No va por periodo: es la foto del día en que se corren las queries.
+
+1. **Presupuesto de premios**: el presupuesto actual (`company_reward_budget.amount`, con lo
+   que tiene para loterías y cuándo se actualizó), lo reclamado del catálogo desde el inicio,
+   el total de los premios Especiales y lo más reclamado.
+2. **Premios reclamados**, **por mes** (el más reciente primero): en cada mes, cada premio con
+   cuántas veces y cuánto costó, y debajo quién lo reclamó («×2» si fue más de una vez). Los
+   **premios Especiales** (`special_reward`) van aquí también, en el mes en que se entregaron y
+   con una pastilla verde «Especial»; los que no tienen fecha, al final en «Sin fecha». Se parte
+   en varias hojas si no cabe, y la hoja que sigue a medio mes repite su título («Abril 2026 ·
+   continúa»).
+3. **Catálogo actual**: los premios activos por nivel (Bronce, Plata, Oro) con su costo y
+   cuántas unidades trae en total cada mes (el `stock` de `catalog_prize`, que es por periodo del
+   catálogo; sin stock, «sin límite»). No se dice cuántas quedan. Bajo el título, el presupuesto
+   del catálogo y cada cuánto se renueva. Los premios **«Coming soon»** no salen: la query los
+   quita si lo dicen el nombre, el nombre interno o el tipo, y la página los vuelve a filtrar por
+   nombre.
+
+Los datos salen de **dos queries** (`public/lib/consultas-presupuesto.js`), sin parámetros:
+
+- **Query A · Presupuesto, catálogo y Especiales**: `company_reward_budget`, `prize_catalog`,
+  `catalog_prize` activos y `special_reward` (con la rifa que lo sorteó, de `lottery_run`).
+  La vista documentada de `special_reward` no dice qué columna trae su nombre, así que la query
+  manda la fila entera en JSON y `presupuesto-datos.js` busca el primer campo con pinta de nombre
+  (`name`, `title`, `description`…). Sin nombre sale como «Premio especial» y la página lo avisa.
+- **Query B · Premios reclamados**: los `reward` con `redeemed_at`, desde el primero de cada
+  compañía y sin GaliTickets, **agrupados** por compañía, mes, jugador, premio y estado: una fila por
+  entrega pasaría de las 10.000 filas que devuelve el chat. Si llega a ese tope, la página avisa.
+
+El costo de cada premio reclamado es `reward.cost`, salvo en Nequi, que es lo pagado
+(`amount_cop`). No cuentan los reclamos cancelados, rechazados, fallidos o vencidos (se
+reconocen por la palabra del estado, que no está documentado).
+
+Los CSV **se leen solo en el navegador**: las reglas de `reporteDatos` en Firestore solo aceptan
+las queries del reporte para clientes. Para guardarlos para el equipo habría que añadir
+`presupuesto|reclamados` al patrón de esas reglas (repo del calendario). El nombre y el logo del
+cliente sí son los de Firestore, los mismos del reporte para clientes.
+
+`presupuesto.html?demo` (o «ver ejemplo») carga una compañía inventada.
+
+**A verificar con el primer export real:** que `amount` sea el presupuesto vigente y no el
+último ajuste, cómo llega `catalog_prize.level` (número o texto) y en qué columna trae su nombre
+un premio Especial.
+
+| Archivo | Qué hace |
+|---|---|
+| `presupuesto.html` / `public/presupuesto.js` | La página: queries, CSV, compañías, vista previa, PDF y ZIP |
+| `public/lib/consultas-presupuesto.js` | Las queries A y B |
+| `public/lib/presupuesto-datos.js` | De los CSV a las cifras de cada compañía, y los datos de ejemplo |
+| `public/lib/hoja-presupuesto.js` | El resumen y las hojas de lista (con su paginado) |
+
 ## Pendientes
 
 - Los recortes PNG sin fondo de cada premio. La web los va pidiendo.

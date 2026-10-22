@@ -6,9 +6,10 @@ import { CONSULTAS, INSTRUCCION } from '../lib/consultas.js';
 
 // Una tarjeta por query: qué trae, cuánto mide, el botón de copiar (ya con la
 // instrucción para el chat delante) y el SQL plegado.
-// `solo`: los ids de las queries que pinta (por defecto, todas).
-export function pintarConsultas(contenedor, solo = null) {
-  contenedor.replaceChildren(...CONSULTAS.filter((c) => !solo || solo.includes(c.id)).map(tarjetaConsulta));
+// `solo`: los ids de las queries que pinta (por defecto, todas). `lista`: de
+// dónde salen (por defecto, las del reporte; el de presupuesto pasa las suyas).
+export function pintarConsultas(contenedor, solo = null, lista = CONSULTAS) {
+  contenedor.replaceChildren(...lista.filter((c) => !solo || solo.includes(c.id)).map(tarjetaConsulta));
 }
 
 function tarjetaConsulta(c) {
