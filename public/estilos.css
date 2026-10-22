@@ -264,12 +264,15 @@ input[type="text"]:disabled {
   white-space: nowrap;
 }
 
-/* Las dos herramientas: pieza para usuarios (verde) y reporte para clientes
-   (azul). El acento de toda la interfaz cambia con la clase del body, así que se
-   sabe de un vistazo en cuál se está; las piezas que se exportan no cambian. */
-:root { --usuarios: #c9f73f; --clientes: #6ec8ff; }
+/* Las herramientas: pieza para usuarios (verde), reporte para clientes (azul) y
+   presupuesto de premios (amarillo). El acento de toda la interfaz cambia con la
+   clase del body, así que se sabe de un vistazo en cuál se está; las piezas que
+   se exportan no cambian. */
+:root { --usuarios: #c9f73f; --clientes: #6ec8ff; --presupuesto: #ffd23f; }
 body.clientes { --lima: var(--clientes); }
 body.clientes .soltar.activa { background: #142029; }
+body.presupuesto { --lima: var(--presupuesto); }
+body.presupuesto .soltar.activa { background: #29230f; }
 
 .barra { border-top: 4px solid var(--lima); }
 .modo {
@@ -311,6 +314,7 @@ body.clientes .soltar.activa { background: #142029; }
 .selector a .punto { grid-row: span 2; width: 10px; height: 10px; border-radius: 50%; }
 .selector a .punto.usuarios { background: var(--usuarios); }
 .selector a .punto.clientes { background: var(--clientes); }
+.selector a .punto.presupuesto { background: var(--presupuesto); }
 .selector a:hover { color: var(--texto); background: var(--panel-alto); }
 .selector a[aria-current="page"] { background: var(--lima); color: var(--tinta); }
 .selector a[aria-current="page"] .punto { background: var(--tinta); }

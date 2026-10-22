@@ -17,7 +17,8 @@ const ANCHO = CARRUSEL.ancho;
 const ALTO = CARRUSEL.alto;
 
 const R = {
-  presupuesto: { h: 262, cifra: 104 },
+  // `nota`: el alto de la nota de la GaliLotería, al pie de la tarjeta.
+  presupuesto: { h: 262, cifra: 104, nota: 92 },
   par: { h: 236, cifra: 64 },
   top: { fila: 72, nombre: 32, dato: 26 },
   // Listas: alto de cada renglón.
@@ -73,7 +74,7 @@ export function dibujarResumen(canvas, op) {
     y += h + hueco;
     return c;
   };
-  const cajas = { presupuesto: caja(R.presupuesto.h), par: caja(R.par.h) };
+  const cajas = { presupuesto: caja(R.presupuesto.h + R.presupuesto.nota), par: caja(R.par.h) };
   cajas.top = { x, y, w, h: H.pie - y, radio: 22 };
 
   pintarFondo(ctx, op.fondo);
@@ -97,11 +98,26 @@ function tarjetaPresupuesto(ctx, c, d) {
   cifra(ctx, p ? dinero(p.monto, p.moneda) : '—', x, base, ancho, R.presupuesto.cifra);
 
   const partes = [];
-  if (p?.loteria) partes.push(`Para loterías: ${dinero(p.loteria, p.moneda)}`);
+  // Lo de loterías (`lottery_amount`) no sale: ese presupuesto ya no tiene
+  // lotería, y la nota de abajo cuenta cómo era antes.
   if (p?.fecha) partes.push(`Actualizado el ${fechaCorta(p.fecha)}`);
   if (!p) partes.push('Sin presupuesto cargado para esta compañía');
-  pie(ctx, partes.join(' · '), x, c.y + c.h - 30, ancho);
+  const abajo = c.y + c.h - R.presupuesto.nota;
+  pie(ctx, partes.join(' · '), x, abajo - 30, ancho);
+
+  // Nota fija, igual para todas las compañías: cómo se repartía antes de la GaliLotería.
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.fillRect(x, abajo - 6, ancho, 2);
+  ctx.font = fG(500, 23);
+  const lineas = envolver(ctx, NOTA_LOTERIA, ancho, 2);
+  ctx.fillStyle = ESTILO.neutral07;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  lineas.forEach((l, i) => ctx.fillText(l, x, abajo + 16 + i * 31));
 }
+
+const NOTA_LOTERIA = 'Antes de la GaliLotería, $500.000 eran para la Lotería y $500.000 para el catálogo. '
+  + 'Desde entonces el presupuesto se aumentó.';
 
 // Dos columnas: lo reclamado del catálogo desde el inicio y los Especiales.
 function tarjetaPar(ctx, c, d) {
@@ -251,18 +267,19 @@ function itemsDePremios(ctx, premios) {
   return items;
 }
 
-// El catálogo actual por nivel, con su costo y cuántas unidades trae cada
-// periodo (`renovacion`: «cada mes»). No cuántas quedan.
+// El catálogo actual por nivel, con cuántas unidades trae cada periodo
+// (`renovacion`: «cada mes»; las unidades ya llegan pasadas a mes), a la derecha. Sin el costo de cada premio (para
+// el cliente solo va el costo total del catálogo, bajo el título) ni cuántas quedan.
 export function itemsCatalogo(niveles, renovacion = '') {
   const items = [];
   for (const n of niveles) {
     items.push({ tipo: 'seccion', texto: n.nombre, dato: `${n.premios.length} ${n.premios.length === 1 ? 'premio' : 'premios'}` });
     for (const p of n.premios) {
-      let nota = 'Sin límite de unidades';
+      let dato = 'Sin límite';
       if (p.unidades != null) {
-        nota = `${entero(p.unidades)} ${p.unidades === 1 ? 'unidad' : 'unidades'} en total ${renovacion || 'por periodo'}`;
+        dato = `${entero(p.unidades)} ${p.unidades === 1 ? 'unidad' : 'unidades'} ${renovacion || 'por periodo'}`;
       }
-      items.push({ tipo: 'fila', titulo: p.nombre, dato: p.costo ? dinero(p.costo, p.moneda) : '', nota });
+      items.push({ tipo: 'fila', titulo: p.nombre, dato });
     }
   }
   return items;

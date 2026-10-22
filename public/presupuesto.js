@@ -245,7 +245,7 @@ function paginasDe(r) {
   }];
 
   const catalogo = Object.keys(r.catalogo.presupuesto).length
-    ? `Presupuesto del catálogo: ${dineros(r.catalogo.presupuesto)}${r.catalogo.renovacion ? ` ${r.catalogo.renovacion}` : ''}`
+    ? `Costo total del catálogo: ${dineros(r.catalogo.presupuesto)}${r.catalogo.renovacion ? ` ${r.catalogo.renovacion}` : ''}`
     : '';
   // Reclamados lleva también los Especiales: el subtítulo los cuenta.
   const meses = r.reclamados.meses;

@@ -44,12 +44,15 @@ const NIVELES = [
   { id: 'oro', nombre: 'Catálogo Oro', es: /^(2|gold|oro)$/i },
 ];
 
-const RENOVACION = [
-  [/day|dia|diar/i, 'cada día'],
-  [/week|seman/i, 'cada semana'],
-  [/quarter|trimes|3 mon/i, 'cada trimestre'],
-  [/year|anual|12 mon/i, 'cada año'],
-  [/mon|mes/i, 'cada mes'],
+// Cuántas veces se renueva el catálogo en un mes, según `renovation_period`. El
+// reporte lo dice todo por mes: un catálogo semanal cuenta 4 semanas por mes
+// (cifras redondas; en un mes de 5 semanas se queda un poco corto).
+const VECES_AL_MES = [
+  [/day|dia|diar/i, 30],
+  [/week|seman/i, 4],
+  [/quarter|trimes|3 mon/i, 1 / 3],
+  [/year|anual|12 mon/i, 1 / 12],
+  [/mon|mes/i, 1],
 ];
 
 const vacio = (t) => t == null || String(t).trim() === '';
@@ -230,9 +233,13 @@ export function presupuestoDe(datos, compania) {
 
   // Catálogos de la compañía: sus presupuestos por periodo, sumados por moneda.
   const catalogos = de(datos.catalogos);
+  // Todo pasado a mes. Sin periodo reconocible no se convierte y no se dice «al mes».
   const presupuestoCatalogo = {};
-  for (const c of catalogos) if (c.presupuesto) sumarEn(presupuestoCatalogo, c.moneda, c.presupuesto);
-  const renovacion = catalogos.map((c) => renovacionLegible(c.renovacion)).find(Boolean) || '';
+  for (const c of catalogos) {
+    if (c.presupuesto) sumarEn(presupuestoCatalogo, c.moneda, c.presupuesto * (vecesAlMes(c.renovacion) ?? 1));
+  }
+  const factor = catalogos.map((c) => vecesAlMes(c.renovacion)).find((v) => v != null) ?? null;
+  const renovacion = factor == null ? '' : 'cada mes';
 
   // Reclamados del catálogo: por premio (para «Lo más reclamado») y, para su
   // hoja, por mes junto con los Especiales.
@@ -256,8 +263,9 @@ export function presupuestoDe(datos, compania) {
     if (!niveles.has(id)) {
       niveles.set(id, { id, nombre: nivel?.nombre || (d.nivel ? `Catálogo ${d.nivel}` : 'Catálogo'), premios: [] });
     }
-    // Las unidades del periodo del catálogo (el stock), no las que quedan.
-    niveles.get(id).premios.push({ nombre: d.nombre, costo: d.costo, moneda: d.moneda, unidades: d.stock });
+    // Las unidades del mes (el stock del periodo del catálogo, pasado a mes), no las que quedan.
+    const unidades = d.stock == null ? null : Math.round(d.stock * (factor ?? 1));
+    niveles.get(id).premios.push({ nombre: d.nombre, costo: d.costo, moneda: d.moneda, unidades });
   }
   const orden = (id) => {
     const i = NIVELES.findIndex((n) => n.id === id);
@@ -339,10 +347,10 @@ function agruparPorPremio(filas) {
     .sort((a, b) => b.conteo - a.conteo || b.total - a.total);
 }
 
-function renovacionLegible(texto) {
-  if (vacio(texto)) return '';
-  const hit = RENOVACION.find(([re]) => re.test(texto));
-  return hit ? hit[1] : '';
+function vecesAlMes(texto) {
+  if (vacio(texto)) return null;
+  const hit = VECES_AL_MES.find(([re]) => re.test(texto));
+  return hit ? hit[1] : null;
 }
 
 /* ---------- datos de ejemplo ---------- */
@@ -360,7 +368,7 @@ export function registrosDeEjemplo(hoy) {
   };
 
   fila({ tipo: 'presupuesto', fecha: dias(3), n1: '4800000', n2: '600000', t1: 'COP' });
-  fila({ tipo: 'catalogo', n1: '1500000', t1: 'COP', t2: 'MONTHLY' });
+  fila({ tipo: 'catalogo', n1: '375000', t1: 'COP', t2: 'WEEKLY' });
   [
     ['Bono Nequi de ${quantity} pesos', 'NEQUI', 20000, '', 20000, '0'],
     ['Netflix 1 mes', 'STANDARD', 35000, 10, 4, '0'],

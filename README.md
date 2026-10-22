@@ -583,19 +583,24 @@ Una lotería nueva es una entrada en `LOTERIAS`; una hoja nueva, una entrada en 
 `presupuesto.html` arma, por compañía, un **PDF aparte** con las mismas hojas de celular del
 reporte para clientes. No va por periodo: es la foto del día en que se corren las queries.
 
-1. **Presupuesto de premios**: el presupuesto actual (`company_reward_budget.amount`, con lo
-   que tiene para loterías y cuándo se actualizó), lo reclamado del catálogo desde el inicio,
-   el total de los premios Especiales y lo más reclamado.
+1. **Presupuesto de premios**: el presupuesto actual (`company_reward_budget.amount`, y cuándo
+   se actualizó; lo de loterías, `lottery_amount`, ya no sale), lo reclamado del catálogo desde el inicio,
+   el total de los premios Especiales y lo más reclamado. Al pie de la tarjeta del presupuesto va
+   una nota fija, igual para todas las compañías (`NOTA_LOTERIA` en `hoja-presupuesto.js`): antes
+   de la GaliLotería, $500.000 eran para la Lotería y $500.000 para el catálogo, y desde entonces
+   el presupuesto se aumentó.
 2. **Premios reclamados**, **por mes** (el más reciente primero): en cada mes, cada premio con
    cuántas veces y cuánto costó, y debajo quién lo reclamó («×2» si fue más de una vez). Los
    **premios Especiales** (`special_reward`) van aquí también, en el mes en que se entregaron y
    con una pastilla verde «Especial»; los que no tienen fecha, al final en «Sin fecha». Se parte
    en varias hojas si no cabe, y la hoja que sigue a medio mes repite su título («Abril 2026 ·
    continúa»).
-3. **Catálogo actual**: los premios activos por nivel (Bronce, Plata, Oro) con su costo y
-   cuántas unidades trae en total cada mes (el `stock` de `catalog_prize`, que es por periodo del
-   catálogo; sin stock, «sin límite»). No se dice cuántas quedan. Bajo el título, el presupuesto
-   del catálogo y cada cuánto se renueva. Los Bonos Nequi salen con su monto
+3. **Catálogo actual**: los premios activos por nivel (Bronce, Plata, Oro) con cuántas unidades
+   trae cada mes (el `stock` de `catalog_prize`; sin stock, «sin límite»). Ni el costo de cada
+   premio ni cuántas quedan: bajo el título va solo el **costo total del catálogo**
+   (`prize_catalog.budget`). Todo se dice **por mes**: el stock y el presupuesto son por periodo
+   del catálogo (`renovation_period`), así que se pasan a mes; un catálogo semanal cuenta **4
+   semanas por mes** (`VECES_AL_MES` en `presupuesto-datos.js`). Los Bonos Nequi salen con su monto
    (`catalog_prize.quantity`). Los premios **«Coming soon»** no salen: la query los quita si lo
    dicen el nombre, el nombre interno o el tipo, y además manda el premio entero en JSON para que
    la página los busque en cualquier campo (un texto «Coming soon» / `COMING_SOON` o una columna
