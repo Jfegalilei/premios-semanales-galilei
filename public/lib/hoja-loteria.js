@@ -181,13 +181,29 @@ function tarjetaLoteria(ctx, c, l, copa, cliente) {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
-  // Premio en hasta dos líneas.
-  ctx.fillStyle = ESTILO.blanco;
-  ctx.font = fT(700, 50);
+  // Lo de abajo (clasificados y requisitos, o el aviso) va pegado al pie: se
+  // mide antes para saber cuánto alto le queda al premio.
+  const v = L.vineta;
+  ctx.font = fT(600, v.fuente);
+  const requisitos = (l.pasos || []).map((paso) => hastaLineas(ctx, paso, ancho - v.sangria, 2));
+  const altoLista = requisitos.reduce((t, lineas) => t + lineas.length * v.interlinea + v.hueco, -v.hueco);
+  const altoBloque = 2 + 18 + altoEtiqueta(1, 0.8) + 10 + 64 + 16 + altoEtiqueta(1, 0.8) + 10 + altoLista;
+  ctx.font = fG(500, 24);
+  const aviso = l.soloPremio
+    ? hastaLineas(ctx, 'Esta lotería es solo para los equipos de empresas con Galilei Training.', ancho, 3)
+    : [];
+  const altoAbajo = l.soloPremio ? 18 + aviso.length * 30 + 18 : altoBloque;
+  const altoGanador = rifa.ganador ? 8 + 32 + 38 + (rifa.empresa ? 34 : 0) : 0;
+
+  // Premio entero, en los renglones que haga falta; la letra baja si no cabe.
   const premio = (rifa.premio || '').trim() || 'Premio por anunciar';
-  for (const linea of hastaLineas(ctx, premio, ancho, 2)) {
+  const altoPremio = abajo - altoAbajo - 16 - altoGanador - arriba;
+  const { tam, lineas } = premioQueCabe(ctx, premio, ancho, 50, 32, Infinity, altoPremio);
+  ctx.fillStyle = ESTILO.blanco;
+  ctx.font = fT(700, tam);
+  for (const linea of lineas) {
     ctx.fillText(linea, x2, y);
-    y += 56;
+    y += tam * 1.12;
   }
 
   // Quién ganó y de qué empresa, en dos líneas; la empresa en verde.
@@ -211,7 +227,6 @@ function tarjetaLoteria(ctx, c, l, copa, cliente) {
   if (l.soloPremio) {
     // Que no parezca que su equipo puede ganarla: es de las empresas con training.
     ctx.font = fG(500, 24);
-    const aviso = hastaLineas(ctx, 'Esta lotería es solo para los equipos de empresas con Galilei Training.', ancho, 3);
     let ya = Math.max(y + 16, abajo - 18 - aviso.length * 30);
     raya(ctx, x2, ya, derecha, ya);
     ya += 18;
@@ -226,11 +241,6 @@ function tarjetaLoteria(ctx, c, l, copa, cliente) {
 
   // Clasificados del mes y, debajo, los requisitos en lista con ✓ verde,
   // pegados al pie de la tarjeta.
-  const v = L.vineta;
-  ctx.font = fT(600, v.fuente);
-  const requisitos = (l.pasos || []).map((paso) => hastaLineas(ctx, paso, ancho - v.sangria, 2));
-  const altoLista = requisitos.reduce((t, lineas) => t + lineas.length * v.interlinea + v.hueco, -v.hueco);
-  const altoBloque = 2 + 18 + altoEtiqueta(1, 0.8) + 10 + 64 + 16 + altoEtiqueta(1, 0.8) + 10 + altoLista;
   let yb = Math.max(y + 16, abajo - altoBloque);
   raya(ctx, x2, yb, derecha, yb);
   yb += 18;
@@ -279,6 +289,20 @@ function vineta(ctx, cx, cy, r) {
   ctx.restore();
 }
 
+// El nombre del premio entero, nunca recortado: el tamaño más grande (de
+// `grande` a `chico`) con el que cabe en `maxLineas` y en `altoMax`. Si ni así
+// cabe, al tamaño chico en todas las líneas que necesite.
+function premioQueCabe(ctx, texto, ancho, grande, chico, maxLineas = Infinity, altoMax = Infinity) {
+  let lineas = [];
+  for (let tam = grande; tam >= chico; tam -= 2) {
+    ctx.font = fT(700, tam);
+    lineas = partir(ctx, texto, ancho);
+    const alto = tam * 0.9 + (lineas.length - 1) * tam * 1.12;
+    if (lineas.length <= maxLineas && alto <= altoMax) return { tam, lineas };
+  }
+  return { tam: chico, lineas };
+}
+
 // Texto partido en hasta `max` líneas; la última se recorta si sobra.
 function hastaLineas(ctx, texto, ancho, max) {
   const lineas = partir(ctx, texto, ancho);
@@ -325,21 +349,17 @@ function repartir(hPasos, hClasificados, arriba) {
   return { rifa, clasificados, pasos };
 }
 
-// Foto del premio entera, sin recortar: recortada para llenar la caja se perdía
-// medio premio (una moto de lado no cabe en una caja casi cuadrada). Lo que
-// sobra a los lados se rellena con la misma foto desenfocada y oscurecida, para
-// que no queden franjas vacías.
+// Foto del premio llenando toda la caja («cover»), centrada: lo que no cabe se
+// recorta por los lados o por arriba y abajo. Antes iba entera con un relleno
+// de la misma foto desenfocada a los lados, pero ese fondo borroso no gustó.
 function fotoEntera(ctx, img, x, y, w, h, radio) {
   const cubre = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+  const cw = img.naturalWidth * cubre;
+  const ch = img.naturalHeight * cubre;
   ctx.save();
   redondeado(ctx, x, y, w, h, radio);
   ctx.clip();
-  ctx.filter = 'blur(28px) brightness(0.45)';
-  const cw = img.naturalWidth * cubre * 1.1;
-  const ch = img.naturalHeight * cubre * 1.1;
   ctx.drawImage(img, x + (w - cw) / 2, y + (h - ch) / 2, cw, ch);
-  ctx.filter = 'none';
-  fotoDentro(ctx, img, x, y, w, h);
   ctx.restore();
 }
 
@@ -378,7 +398,12 @@ function tarjetaRifa(ctx, c, rifa, foto, trofeo) {
   const yGanador = yBoton - (rifa.live ? 28 : 0) - 36;
   const yPremio = yGanador - 24;
   const arribaFoto = c.y + 34 + altoEtiqueta() + 20;
-  const altoFoto = yPremio - p.fuente * 0.9 - 26 - arribaFoto;
+  // El premio, entero: en una línea si cabe a buen tamaño, si no en varias.
+  // Su alto se le quita a la foto.
+  const premio = (rifa.premio || '').trim() || 'Premio por anunciar';
+  const { tam, lineas } = premioQueCabe(ctx, premio, ancho, p.fuente, p.min, 2);
+  const interlinea = tam * 1.12;
+  const altoFoto = yPremio - tam * 0.9 - (lineas.length - 1) * interlinea - 26 - arribaFoto;
 
   if (altoFoto >= L.foto.min) {
     if (foto) {
@@ -393,18 +418,11 @@ function tarjetaRifa(ctx, c, rifa, foto, trofeo) {
     }
   }
 
-  // Premio: tan grande como quepa en una línea.
-  const premio = (rifa.premio || '').trim() || 'Premio por anunciar';
-  let tam = p.fuente;
   ctx.font = fT(700, tam);
-  while (tam > p.min && ctx.measureText(premio).width > ancho) {
-    tam -= 2;
-    ctx.font = fT(700, tam);
-  }
   ctx.fillStyle = ESTILO.blanco;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(recortar(ctx, premio, ancho), x, yPremio);
+  lineas.forEach((linea, i) => ctx.fillText(linea, x, yPremio - (lineas.length - 1 - i) * interlinea));
 
   // «Ganó Nombre · Empresa»: el nombre en blanco, la empresa en verde.
   if (rifa.ganador) {

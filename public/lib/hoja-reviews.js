@@ -251,9 +251,10 @@ function cajaTop(ctx, c, top, huboReviews) {
 // con lo mismo que la tarjeta de Galilei de la hoja de reseñas —cuántas llegaron
 // por Galilei y su promedio—, una barra con qué parte de las reseñas por
 // Galilei de la compañía consiguió y, al pie, la calificación de esa ficha en
-// Google. Las tarjetas se reparten todo el alto hasta el pie, para que la hoja
-// no quede con un hueco: con pocas sedes, la letra crece un poco.
-const S = { alto: 260, maxEscala: 1.25, cifra: 96, palabra: 44, promedio: 72, estrella: 26, pie: 26, barra: 14 };
+// Google. Las tarjetas se reparten el alto hasta el pie, pero sin pasar de
+// `S.max`: con dos o tres sedes, estiradas hasta el pie quedaban enormes, y es
+// mejor dejar algo de aire abajo. Con muchas se achican, y la letra con ellas.
+const S = { alto: 260, max: 340, maxEscala: 1.1, cifra: 96, palabra: 44, promedio: 72, estrella: 26, pie: 26, barra: 14 };
 
 /**
  * @param {HTMLCanvasElement} canvas
@@ -271,7 +272,7 @@ export function dibujarResenasPorSede(canvas, op) {
 
   const { sedes, porGali } = op.datos;
   const n = sedes.length;
-  const h = (H.pie - H.arriba - H.hueco * (n - 1)) / n;
+  const h = Math.min(S.max, (H.pie - H.arriba - H.hueco * (n - 1)) / n);
   const k = Math.min(S.maxEscala, h / S.alto);
   const cajas = sedes.map((_, i) => ({ x: H.x, y: H.arriba + i * (h + H.hueco), w: H.w, h, radio: H.radio * Math.min(1, k) }));
 
