@@ -313,6 +313,33 @@ function sumarResenas(filas) {
   };
 }
 
+// La sede a partir del título de la ficha en Google, que viene completo
+// («Restaurante Mekong Laureles»):
+//   - con « - », el último tramo («Máximo Cocina Mediterránea - Cartagena» ->
+//     «Cartagena»);
+//   - si no, sin el nombre de la compañía (seguido, o palabra por palabra si
+//     no aparece entero: «Smash Envigado» -> «Envigado»);
+//   - y sin las palabras genéricas del principio («Restaurante», «Sushi»).
+// Si no queda nada, el título tal cual.
+const GENERICAS = new Set(['restaurante', 'restaurant', 'sushi']);
+const plano = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+export function sedeDeFicha(titulo, compania = '') {
+  const completo = (titulo || '').trim();
+  const tramos = completo.split(/\s+-\s+/).filter(Boolean);
+  let palabras = (tramos.length > 1 ? tramos[tramos.length - 1] : completo).split(/\s+/).filter(Boolean);
+  const deCompania = compania.split(/\s+/).map(plano).filter(Boolean);
+  if (tramos.length === 1 && deCompania.length) {
+    const planas = palabras.map(plano);
+    const i = planas.findIndex((_, k) => deCompania.every((w, j) => planas[k + j] === w));
+    palabras = i >= 0
+      ? [...palabras.slice(0, i), ...palabras.slice(i + deCompania.length)]
+      : palabras.filter((p) => !deCompania.includes(plano(p)));
+  }
+  while (palabras.length && GENERICAS.has(plano(palabras[0]))) palabras.shift();
+  const sede = palabras.join(' ').replace(/^[\s\-/,·]+|[\s\-/,·]+$/g, '');
+  return sede || completo;
+}
+
 // Reseñas por sede: cada ficha de Google es una sede. Por ficha, las reviews por
 // Galilei del periodo, su promedio y la calificación en Google al cierre;
 // ordenadas de más a menos reseñas. Las fichas sin reseñas en el periodo salen
@@ -327,7 +354,7 @@ function resenasPorSede(fichas, filas, fotos, fin) {
     const suma = r.length ? sumarResenas(r) : { porGali: 0, promedio: 0 };
     const cierre = calificacionAl(fotos.filter((f) => f.ficha === ficha.id), fin);
     return {
-      nombre: ficha.nombre || 'Sede sin nombre',
+      nombre: sedeDeFicha(ficha.nombre, ficha.compania) || 'Sede sin nombre',
       porGali: suma.porGali,
       promedioGali: suma.porGali ? suma.promedio : null,
       calificacion: cierre ? cierre.calificacion : null,

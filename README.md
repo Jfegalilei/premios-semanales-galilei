@@ -430,6 +430,8 @@ solo reviews y lotería.
    con dos fichas de Google o más (cada ficha es una sede: «La Causa El Poblado», «La Causa
    Laureles»): una tarjeta por sede con sus reseñas por Galilei, su promedio, qué parte del total
    de la compañía consiguió y la calificación de esa ficha en Google. Con una sola ficha no sale.
+   El título de la ficha viene completo («Restaurante Mekong Laureles»): `sedeDeFicha` deja solo
+   la sede (último tramo tras « - », o sin el nombre de la compañía ni «Restaurante»/«Sushi»).
 4. **GaliLotería** (`public/lib/hoja-loteria.js`), para todas menos Auteco, que en su lugar
    recibe la **Lotería Auteco** (misma hoja, con sus requisitos, sus clasificados por rol y su
    propia rifa en `premiosConfig/loteriaAuteco`): la última rifa (premio, ganador, empresa y botón al live, que en el PDF es un

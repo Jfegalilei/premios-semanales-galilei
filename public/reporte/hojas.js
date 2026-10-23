@@ -113,7 +113,9 @@ const HOJAS = [
       nombre: 'Reseñas por sede',
       dibujar: (lienzo, fondo) => dibujarResenasPorSede(lienzo, {
         ...comunes,
-        titulo: 'Reseñas\npor sede',
+        titulo: 'Reseñas por sede',
+        // Todo lo de la hoja es por Galilei, menos la calificación en Google del pie.
+        subtitulo: 'Gracias a Galilei',
         personaje: elegir(recursos.personajes, 'reviews-sedes'),
         fondo,
         trofeo: null,
