@@ -418,12 +418,18 @@ solo reviews y lotería.
    escenario.
 2. **Premios entregados**: la misma pieza de la semanal (`dibujarDiapositiva`), con la **inversión
    total** en verde bajo el título. Con más de siete premios se parte en varias páginas, igual
-   que la semanal.
+   que la semanal. Si en el periodo no se reclamó ningún premio, en lugar de la retícula vacía
+   sale una hoja de aviso como la de metas (`dibujarAviso` y `SIN_PREMIOS` en
+   `hoja-metas.js`): el mensaje arriba y las medallas de los niveles hasta el pie.
 3. **Reseñas en Google** (`public/lib/hoja-reviews.js`), solo para las compañías con ficha de
    Google activa: calificación general en Google al cierre del periodo y, de las
    reviews, **solo lo que llegó por Galilei** (tarjeta o juego, `review_click`): cuántas y su
    promedio, sus estrellas y el Top 3 de empleados con más reviews de 5 estrellas. No sale nada
    que deje ver cuáles no fueron por Galilei (ni el total de reviews nuevas ni el porcentaje).
+   **Reseñas por sede** (`dibujarResenasPorSede`, misma hoja de código), solo para las compañías
+   con dos fichas de Google o más (cada ficha es una sede: «La Causa El Poblado», «La Causa
+   Laureles»): una tarjeta por sede con sus reseñas por Galilei, su promedio, qué parte del total
+   de la compañía consiguió y la calificación de esa ficha en Google. Con una sola ficha no sale.
 4. **GaliLotería** (`public/lib/hoja-loteria.js`), para todas menos Auteco, que en su lugar
    recibe la **Lotería Auteco** (misma hoja, con sus requisitos, sus clasificados por rol y su
    propia rifa en `premiosConfig/loteriaAuteco`): la última rifa (premio, ganador, empresa y botón al live, que en el PDF es un
@@ -467,7 +473,7 @@ premios y chocaba con el título.
 
 Salen de **cuatro queries** (`public/lib/consultas.js`), que la página muestra con botón «Copiar».
 No llevan parámetros —traen todas las compañías desde el primer día del mes anterior—, así que se
-pegan siempre igual en Analytics Chat. Miden unos 1.780, 1.310, 1.810 y 1.490 caracteres con la
+pegan siempre igual en Analytics Chat. Miden unos 1.870, 1.550, 1.830 y 1.490 caracteres con la
 instrucción delante: el chat corta el mensaje hacia los 1.900.
 
 1. **Conocimiento**, ya agregada en SQL por compañía y periodo (cada semana de lunes a domingo y
@@ -480,10 +486,13 @@ instrucción delante: el chat corta el mensaje hacia los 1.900.
    premio entregado (~1.300 en mes y medio).
    La query 1 trae también los clasificados a la GaliLotería por compañía y mes (`lot`).
 3. **Reviews de Google**, de las fichas activas (`google_location.is_enabled`): las fichas, por
-   periodo las reviews nuevas y las de Galilei con su promedio (`rev`), las de Galilei por
+   periodo y ficha las reviews nuevas y las de Galilei con su promedio (`rev`; el navegador las
+   suma para la compañía y las usa tal cual para las reseñas por sede), las de Galilei por
    estrellas (`estrellas`) y cada empleado con sus reviews 5★ por Galilei (`emp`), y las fotos de la calificación (`foto`, de `location_rating_snapshot`) desde 60 días
    antes, para tener con qué comparar el arranque del periodo. El `rating` llega en palabras
-   (`ONE` a `FIVE`) y la query lo pasa a número.
+   (`ONE` a `FIVE`) y la query lo pasa a número. Las filas `emp` traen también `employee_id`,
+   para que Analytics le ponga nombre al empleado que no tiene jugador (compañías de solo
+   reseñas); sin nombre, sale su puesto en el Top 3 («Primer Puesto»).
 4. **Lotería Auteco**, solo para Auteco: por mes, los clasificados (15 partidas, 30 puntos y
    escaneos `VALIDATED` de `metric_qr_code_scan`: 10 los técnicos, 20 el resto) partidos por
    rol, y cuántos cumplen el juego pero no los escaneos. El rol sale del tag de empleado

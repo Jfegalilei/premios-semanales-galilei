@@ -245,3 +245,118 @@ function cajaTop(ctx, c, top, huboReviews) {
     ctx.fillText(recortar(ctx, e.nombre, derecha - anchoDato - 24 - xNombre), xNombre, cy + 1);
   });
 }
+
+// Hoja «Reseñas por sede», solo para las compañías con dos fichas de Google o
+// más (cada ficha es una sede): una tarjeta por sede, de más a menos reseñas,
+// con lo mismo que la tarjeta de Galilei de la hoja de reseñas —cuántas llegaron
+// por Galilei y su promedio—, una barra con qué parte de las reseñas por
+// Galilei de la compañía consiguió y, al pie, la calificación de esa ficha en
+// Google. Las tarjetas se reparten todo el alto hasta el pie, para que la hoja
+// no quede con un hueco: con pocas sedes, la letra crece un poco.
+const S = { alto: 260, maxEscala: 1.25, cifra: 96, palabra: 44, promedio: 72, estrella: 26, pie: 26, barra: 14 };
+
+/**
+ * @param {HTMLCanvasElement} canvas
+ * @param {object} op  cabecera, como `dibujarReviews`, y `datos`, lo que
+ *   devuelve `reviews()` (usa `sedes` y `porGali`).
+ */
+export function dibujarResenasPorSede(canvas, op) {
+  const { escala } = CARRUSEL;
+  canvas.width = ANCHO * escala;
+  canvas.height = ALTO * escala;
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.setTransform(escala, 0, 0, escala, 0, 0);
+  ctx.imageSmoothingQuality = 'high';
+
+  const { sedes, porGali } = op.datos;
+  const n = sedes.length;
+  const h = (H.pie - H.arriba - H.hueco * (n - 1)) / n;
+  const k = Math.min(S.maxEscala, h / S.alto);
+  const cajas = sedes.map((_, i) => ({ x: H.x, y: H.arriba + i * (h + H.hueco), w: H.w, h, radio: H.radio * Math.min(1, k) }));
+
+  pintarFondo(ctx, op.fondo);
+  cabecera(ctx, { ...op, tarjetas: cajas });
+  sedes.forEach((s, i) => tarjetaSede(ctx, cajas[i], s, porGali, k));
+
+  ctx.restore();
+  return canvas;
+}
+
+function tarjetaSede(ctx, c, s, totalGali, k) {
+  tarjeta(ctx, c);
+  const x = c.x + H.pad;
+  const derecha = c.x + c.w - H.pad;
+  const arriba = c.y + 34 * k;
+
+  // El nombre de la ficha, como los títulos de las demás tarjetas; los largos
+  // se recortan.
+  ctx.save();
+  ctx.font = fG(700, H.etiqueta * k);
+  ctx.letterSpacing = `${3 * k}px`;
+  const nombre = recortar(ctx, s.nombre.toUpperCase(), c.w - H.pad * 2);
+  ctx.restore();
+  etiqueta(ctx, nombre, x, arriba, k);
+
+  // Al pie: la calificación de la ficha en Google.
+  const pie = c.y + c.h - 28 * k;
+  ctx.textBaseline = 'bottom';
+  ctx.textAlign = 'left';
+  ctx.font = fG(500, S.pie * k);
+  ctx.fillStyle = ESTILO.neutral07;
+  const google = s.calificacion == null
+    ? 'Sin calificación en Google'
+    : `${decimal(s.calificacion)} ★ en Google · ${entero(s.totalGoogle)} calificaciones`;
+  ctx.fillText(recortar(ctx, google, c.w - H.pad * 2), x, pie);
+
+  // Entre el nombre y el pie, centrados: la cifra y, debajo, la barra con su
+  // parte (si cabe).
+  const desde = arriba + altoEtiqueta(1, k) + 14 * k;
+  const hasta = pie - S.pie * k - 18 * k;
+  const alto = S.cifra * k * 0.78;
+  const conBarra = totalGali > 0 && hasta - desde >= alto + 30 * k + S.barra * k;
+  const bloque = alto + (conBarra ? 30 * k + S.barra * k : 0);
+  const base = desde + Math.max(0, (hasta - desde - bloque) / 2) + alto;
+
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = ESTILO.blanco;
+  ctx.font = fT(700, S.cifra * k);
+  const cifra = entero(s.porGali);
+  ctx.fillText(cifra, x, base);
+  const anchoCifra = ctx.measureText(cifra).width;
+  ctx.fillStyle = ESTILO.neutral07;
+  ctx.font = fT(600, S.palabra * k);
+  ctx.fillText(s.porGali === 1 ? 'reseña' : 'reseñas', x + anchoCifra + 16 * k, base);
+
+  // Promedio de estrellas de las reseñas por Galilei de la sede.
+  if (s.promedioGali != null) {
+    const r = S.estrella * k;
+    ctx.textAlign = 'right';
+    ctx.fillStyle = ESTILO.blanco;
+    ctx.font = fT(700, S.promedio * k);
+    const xEstrella = derecha - r;
+    estrella(ctx, xEstrella, base - S.promedio * k * 0.36, r, ESTILO.g500);
+    ctx.fillText(decimal(s.promedioGali), xEstrella - r - 12 * k, base);
+  }
+
+  // Qué parte de las reseñas por Galilei de la compañía consiguió la sede.
+  if (conBarra) {
+    const b = S.barra * k;
+    const y = base + 30 * k;
+    ctx.font = fG(700, S.pie * k);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = ESTILO.blanco;
+    const pct = porcentaje(s.porGali, totalGali);
+    ctx.fillText(pct, derecha, y + b / 2 + 1);
+    const ancho = c.w - H.pad * 2 - ctx.measureText('100%').width - 20 * k;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    redondeado(ctx, x, y, ancho, b, b / 2);
+    ctx.fill();
+    if (s.porGali) {
+      ctx.fillStyle = ESTILO.g500;
+      redondeado(ctx, x, y, Math.max(b, ancho * (s.porGali / totalGali)), b, b / 2);
+      ctx.fill();
+    }
+  }
+}

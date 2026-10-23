@@ -27,9 +27,11 @@
 //
 // Query 3, reviews de Google, solo de las compañías con ficha activa
 // (`google_location.is_enabled`):
-//   ficha     t1 google_location_id, t2 nombre de la ficha   (una por ficha)
+//   ficha     t1 google_location_id, t2 nombre de la ficha   (una por ficha:
+//             cada ficha es una sede, «La Causa El Poblado», «La Causa Laureles»)
 //   rev       n1 reviews nuevas, n2 de ellas por Gali (con clic de tarjeta o
-//             juego), n3 estrellas promedio de las de Gali   (por periodo)
+//             juego), n3 estrellas promedio de las de Gali, t1 la ficha
+//             (por periodo y ficha: de aquí salen las reseñas por sede)
 //   estrellas n1 estrellas (1 a 5), n2 reviews por Gali   (por periodo)
 //   foto      fecha, n1 calificación en Google, n2 calificaciones en total,
 //             t1 google_location_id   (desde 60 días antes: la calificación al
@@ -42,7 +44,9 @@
 //             el `player_id` del clic no es el empleado. El jugador sale de
 //             `player.employee_id` o del actor del empleado (`actor.employee_id`),
 //             solo para el nombre: la base no guarda nombres, Analytics los pone
-//             a partir de `player_id`. Sin jugador, sin nombre.
+//             a partir de `player_id`. Va también `employee_id` (columna
+//             aparte, solo en estas filas) para que Analytics le ponga nombre al
+//             empleado que no tiene jugador: los de las compañías de solo reseñas.
 //
 // Query 4, lotería propia de Auteco, por mes: además de las 15 partidas y los
 // 30 puntos pide escaneos de baterías VALIDATED en el mes (10 los técnicos, 20
@@ -101,13 +105,13 @@ UNION ALL SELECT 'premio',co,(r.redeemed_at-INTERVAL '5 hours')::date,i,cp.quant
     sql: `WITH k AS(SELECT DATE_TRUNC('month',CURRENT_DATE-INTERVAL '1 month')+INTERVAL '5 hours' d),
 gl AS(SELECT g.google_location_id gi,c.name co,g.title ti FROM google_location g JOIN company c ON c.company_id=g.company_id WHERE g.is_enabled),
 gc AS(SELECT DISTINCT ON(google_review_id) google_review_id ri,employee_id em FROM review_click WHERE google_review_id IS NOT NULL ORDER BY 1,2),
-r AS(SELECT review_id ri,co,array_position(ARRAY['ONE','TWO','THREE','FOUR','FIVE'],rating) e,(create_time-INTERVAL '5 hours')::date f FROM google_review JOIN gl ON gi=google_location_id WHERE create_time>=(SELECT d FROM k)),
+r AS(SELECT review_id ri,co,gi,array_position(ARRAY['ONE','TWO','THREE','FOUR','FIVE'],rating) e,(create_time-INTERVAL '5 hours')::date f FROM google_review JOIN gl ON gi=google_location_id WHERE create_time>=(SELECT d FROM k)),
 rp AS(SELECT r.*,em,gc.ri IS NOT NULL ga,v.per,v.ini FROM r LEFT JOIN gc USING(ri),LATERAL(VALUES('semana',DATE_TRUNC('week',f)::date),('mes',DATE_TRUNC('month',f)::date))v(per,ini))
-SELECT 'ficha' tipo,co compania,NULL periodo,NULL fecha,NULL::uuid player_id,NULL n1,NULL n2,NULL n3,NULL n4,gi t1,ti t2 FROM gl
-UNION ALL SELECT 'rev',co,per,ini,NULL,COUNT(*),COUNT(*)FILTER(WHERE ga),AVG(e)FILTER(WHERE ga),NULL,NULL,NULL FROM rp GROUP BY 2,3,4
-UNION ALL SELECT 'estrellas',co,per,ini,NULL,e,COUNT(*),NULL,NULL,NULL,NULL FROM rp WHERE ga GROUP BY 2,3,4,6
-UNION ALL SELECT 'emp',co,per,ini,(SELECT p.player_id FROM player p JOIN actor a USING(actor_id) WHERE em IN(p.employee_id,a.employee_id) LIMIT 1),COUNT(*),NULL,NULL,NULL,NULL,NULL FROM rp WHERE ga AND e=5 AND em IS NOT NULL GROUP BY co,per,ini,em
-UNION ALL SELECT 'foto',co,NULL,snapshot_date,NULL,average_rating,total_rating_count,NULL,NULL,gi,NULL FROM location_rating_snapshot JOIN gl ON gi=google_location_id WHERE snapshot_date>=(SELECT d FROM k)::date-60`,
+SELECT 'ficha' tipo,co compania,NULL periodo,NULL fecha,NULL::uuid player_id,NULL n1,NULL n2,NULL n3,NULL n4,gi t1,ti t2,NULL::uuid employee_id FROM gl
+UNION ALL SELECT 'rev',co,per,ini,NULL,COUNT(*),COUNT(*)FILTER(WHERE ga),AVG(e)FILTER(WHERE ga),NULL,gi,NULL,NULL FROM rp GROUP BY 2,3,4,10
+UNION ALL SELECT 'estrellas',co,per,ini,NULL,e,COUNT(*),NULL,NULL,NULL,NULL,NULL FROM rp WHERE ga GROUP BY 2,3,4,6
+UNION ALL SELECT 'emp',co,per,ini,(SELECT p.player_id FROM player p JOIN actor a USING(actor_id) WHERE em IN(p.employee_id,a.employee_id) LIMIT 1),COUNT(*),NULL,NULL,NULL,NULL,NULL,em FROM rp WHERE ga AND e=5 AND em IS NOT NULL GROUP BY co,per,ini,em
+UNION ALL SELECT 'foto',co,NULL,snapshot_date,NULL,average_rating,total_rating_count,NULL,NULL,gi,NULL,NULL FROM location_rating_snapshot JOIN gl ON gi=google_location_id WHERE snapshot_date>=(SELECT d FROM k)::date-60`,
   },
   {
     id: 'auteco',

@@ -21,8 +21,12 @@ const SEDES = [['Sede Norte', 6], ['Sede Centro', 8], ['Sede Sur', 5], ['Sede Oc
 const NIVELES_SEDES = [2, 1, 0, 2, -1];
 const sedeDe = (i) => i % SEDES.length;
 
-// Dos fichas de Google con su calificación de arranque.
-const FICHAS = [['demo-g1', 'Cliente Demo Norte', 4.5, 820], ['demo-g2', 'Cliente Demo Centro', 4.3, 540]];
+// Tres fichas de Google (sedes) con su calificación de arranque.
+const FICHAS = [
+  ['demo-g1', 'Cliente Demo Norte', 4.5, 820],
+  ['demo-g2', 'Cliente Demo Centro', 4.3, 540],
+  ['demo-g3', 'Cliente Demo Sur - Centro Comercial Los Molinos', 4.6, 210],
+];
 
 const PREMIOS = [
   ['Bono Nequi de ${quantity} pesos', 'NEQUI', [10000, 20000, 50000]],
@@ -43,12 +47,13 @@ export function csvDeEjemplo() {
   const filas = ['tipo,compania,periodo,fecha,player_id,n1,n2,n3,n4,t1,t2,t3,player,t4'];
   const fila = (...c) => filas.push(c.join(','));
 
-  // Reviews: por periodo, igual que la query 3. `rev` -> { nuevas, gali, suma, estrellas, embajadores }
+  // Reviews: por periodo, igual que la query 3. `rev` -> { nuevas, gali, suma, estrellas, embajadores,
+  // fichas }; `fichas` lleva { nuevas, gali, suma } de cada ficha: las filas `rev` van una por ficha.
   const reviews = new Map();
   const deReviews = (per, ini) => {
     const clave = `${per}|${ini}`;
     if (!reviews.has(clave)) {
-      reviews.set(clave, { per, ini, nuevas: 0, gali: 0, suma: 0, estrellas: [0, 0, 0, 0, 0], embajadores: new Map() });
+      reviews.set(clave, { per, ini, nuevas: 0, gali: 0, suma: 0, estrellas: [0, 0, 0, 0, 0], embajadores: new Map(), fichas: new Map() });
     }
     return reviews.get(clave);
   };
@@ -94,7 +99,7 @@ export function csvDeEjemplo() {
       }
     });
     for (const ficha of fichas) {
-      const cuantas = Math.floor(azar() * 7);
+      const cuantas = Math.floor(azar() * (ficha.id === 'demo-g3' ? 3 : 7));
       for (let n = 0; n < cuantas; n++) {
         const u = azar();
         const e = u < 0.82 ? 5 : u < 0.92 ? 4 : u < 0.96 ? 3 : u < 0.98 ? 2 : 1;
@@ -102,11 +107,16 @@ export function csvDeEjemplo() {
         const quien = Math.floor(azar() * 6);
         for (const [per, ini] of periodosDe(fecha)) {
           const a = deReviews(per, ini);
+          const f = a.fichas.get(ficha.id) || { nuevas: 0, gali: 0, suma: 0 };
+          a.fichas.set(ficha.id, f);
           a.nuevas += 1;
+          f.nuevas += 1;
           if (gali) {
             a.gali += 1;
             a.suma += e;
             a.estrellas[e - 1] += 1;
+            f.gali += 1;
+            f.suma += e;
           }
           if (gali && e === 5) a.embajadores.set(quien, (a.embajadores.get(quien) || 0) + 1);
         }
@@ -135,7 +145,9 @@ export function csvDeEjemplo() {
       .forEach((l) => fila('loc', COMPANIA, a.per, a.ini, '', l.activos, l.total, '', '', q(l.nombre), '', '', ''));
   }
   for (const a of reviews.values()) {
-    fila('rev', COMPANIA, a.per, a.ini, '', a.nuevas, a.gali, a.gali ? (a.suma / a.gali).toFixed(2) : '', '', '', '', '', '');
+    for (const [id, f] of a.fichas) {
+      fila('rev', COMPANIA, a.per, a.ini, '', f.nuevas, f.gali, f.gali ? (f.suma / f.gali).toFixed(2) : '', '', id, '', '', '');
+    }
     a.estrellas.forEach((n, i) => n && fila('estrellas', COMPANIA, a.per, a.ini, '', i + 1, n, '', '', '', '', '', ''));
     [...a.embajadores.entries()]
       .forEach(([i, n]) => fila('emp', COMPANIA, a.per, a.ini, `demo-${i}`, n, '', '', '', '', '', '', q(JUGADORES[i])));

@@ -30,9 +30,12 @@ export function textoDelPremio(nombre, tipo, cantidad) {
   return q > 0 ? nombre.replace(/\$?\{quantity\}/g, String(q)) : nombre;
 }
 
-// Analytics agrega el nombre por su cuenta junto a `player_id`.
+// Analytics agrega el nombre por su cuenta junto a `player_id` (columna
+// `Player`). En las filas `emp` va además `employee_id`, para el empleado sin
+// jugador (compañías de solo reseñas): su nombre llega en otra columna.
 function nombreDe(r) {
-  return r.playername || r.player || r.jugador || r.nombre || '';
+  return r.playername || r.player || r.jugador || r.nombre
+    || r.employeename || r.employee || r.empleado || '';
 }
 
 // Teams y sedes que no salen nunca en el reporte (ni en el Top 3 de sedes ni en
@@ -114,6 +117,9 @@ export function interpretarTabla({ registros }) {
     } else if (r.tipo === 'rev') {
       datos.resenas.push({
         ...periodo,
+        // La ficha (sede) de las reviews. Vacía en un CSV de antes de que la
+        // query 3 las partiera por ficha: ahí la fila es de toda la compañía.
+        ficha: r.t1 || '',
         nuevas: aNumero(r.n1),
         porGali: aNumero(r.n2),
         promedio: aNumero(r.n3),
@@ -263,8 +269,11 @@ function calificacionAl(fotos, fecha) {
 // ficha de Google activa: no tiene el servicio y la hoja no sale. `nuevas`
 // (todas) solo sirve para saber si hubo actividad; no sale en la hoja.
 export function reviews(datos, compania, periodo) {
-  if (!datos.fichas.some((f) => f.compania === compania)) return null;
-  const r = datos.resenas.find(delPeriodo(compania, periodo));
+  const fichas = datos.fichas.filter((f) => f.compania === compania);
+  if (!fichas.length) return null;
+  // Una fila por ficha (o una sola, de toda la compañía, en un CSV viejo).
+  const filas = datos.resenas.filter(delPeriodo(compania, periodo));
+  const r = filas.length ? sumarResenas(filas) : null;
   const fotos = datos.fotos.filter((f) => f.compania === compania);
   const cierre = calificacionAl(fotos, periodo.fin);
   const estrellas = [5, 4, 3, 2, 1].map((e) => ({
@@ -289,7 +298,42 @@ export function reviews(datos, compania, periodo) {
       .slice(0, 3)
       // Sin nombre registrado: el puesto que ocupa en el top.
       .map((e, i) => ({ ...e, nombre: e.nombre || `${PUESTOS[i]} Puesto` })),
+    sedes: resenasPorSede(fichas, filas, fotos, periodo.fin),
   };
+}
+
+// Las filas `rev` de varias fichas en una: suma las reviews y promedia las
+// estrellas según cuántas por Galilei tiene cada ficha.
+function sumarResenas(filas) {
+  const porGali = filas.reduce((s, f) => s + f.porGali, 0);
+  return {
+    nuevas: filas.reduce((s, f) => s + f.nuevas, 0),
+    porGali,
+    promedio: porGali ? filas.reduce((s, f) => s + f.promedio * f.porGali, 0) / porGali : 0,
+  };
+}
+
+// Reseñas por sede: cada ficha de Google es una sede. Por ficha, las reviews por
+// Galilei del periodo, su promedio y la calificación en Google al cierre;
+// ordenadas de más a menos reseñas. Las fichas sin reseñas en el periodo salen
+// en 0. Solo con dos fichas o más (con una, la sede es toda la compañía y ya
+// está en la hoja de reseñas): con una, `[]`. `null` si el CSV de la query 3 es
+// de antes de que partiera las reviews por ficha.
+function resenasPorSede(fichas, filas, fotos, fin) {
+  if (fichas.length < 2) return [];
+  if (filas.length && !filas.some((f) => f.ficha)) return null;
+  return fichas.map((ficha) => {
+    const r = filas.filter((f) => f.ficha === ficha.id);
+    const suma = r.length ? sumarResenas(r) : { porGali: 0, promedio: 0 };
+    const cierre = calificacionAl(fotos.filter((f) => f.ficha === ficha.id), fin);
+    return {
+      nombre: ficha.nombre || 'Sede sin nombre',
+      porGali: suma.porGali,
+      promedioGali: suma.porGali ? suma.promedio : null,
+      calificacion: cierre ? cierre.calificacion : null,
+      totalGoogle: cierre ? cierre.total : null,
+    };
+  }).sort((a, b) => b.porGali - a.porGali || a.nombre.localeCompare(b.nombre, 'es'));
 }
 
 const PUESTOS = ['Primer', 'Segundo', 'Tercer'];

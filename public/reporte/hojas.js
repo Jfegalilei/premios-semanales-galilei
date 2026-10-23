@@ -7,7 +7,7 @@
 //               inversión total bajo el título; con más de siete premios se parte
 //               en varias páginas, el total solo en la primera y sin «Desliza»
 //               porque es un PDF)
-//   reviews  -> reviews de Google
+//   reviews  -> reviews de Google y, con dos fichas o más, reseñas por sede
 //   loterías -> las de `r.loterias` (ver `loteriasDe` en reporte.js). Con una
 //               sola (solo training), su hoja completa; con varias (con
 //               reseñas), todas en una hoja: la de Reseñas con clasificados y
@@ -18,8 +18,10 @@
 
 import { diaMes } from '../lib/periodos.js';
 import { dibujarConocimiento } from '../lib/hoja-conocimiento.js';
-import { dibujarReviews } from '../lib/hoja-reviews.js';
-import { dibujarMetas, tituloMetas } from '../lib/hoja-metas.js';
+import { dibujarReviews, dibujarResenasPorSede } from '../lib/hoja-reviews.js';
+import {
+  dibujarMetas, dibujarAviso, tituloMetas, SIN_PREMIOS,
+} from '../lib/hoja-metas.js';
 import { dibujarLoteria, dibujarLoterias } from '../lib/hoja-loteria.js';
 import { armarCarrusel, dibujarDiapositiva } from '../lib/carrusel.js';
 import { personajeDe, azarConSemilla } from '../lib/lienzo.js';
@@ -59,8 +61,22 @@ const HOJAS = [
         // Cada premio lleva sus entregas: de ahí salen las sedes de su página.
         .map((g) => ({ ...armarGrupo(g, recursos.catalogo, recursos.imagenes), entregas: g.entregas }));
       const diapositivas = armarCarrusel(grupos);
-      if (!diapositivas.length) diapositivas.push({ grupos: [], ganadores: [], parte: 1, partes: 1 });
-      const total = r.premios.entregas ? `Inversión total: ${enPesos(r.premios.total)}` : 'Sin premios entregados';
+      // Sin premios en el periodo: la hoja de aviso (como la de metas), con
+      // las medallas de los niveles en vez de la retícula vacía.
+      if (!diapositivas.length) {
+        return [{
+          nombre: 'Premios',
+          dibujar: (lienzo, fondo) => dibujarAviso(lienzo, {
+            ...comunes,
+            titulo: 'Premios Entregados',
+            texto: SIN_PREMIOS,
+            medallas: recursos.medallas,
+            personaje: elegir(recursos.personajes, 1),
+            fondo,
+          }),
+        }];
+      }
+      const total = `Inversión total: ${enPesos(r.premios.total)}`;
       return diapositivas.map((d, n) => ({
         nombre: diapositivas.length > 1 ? `Premios (${n + 1} de ${diapositivas.length})` : 'Premios',
         dibujar: (lienzo, fondo) => dibujarDiapositiva(lienzo, {
@@ -91,7 +107,19 @@ const HOJAS = [
         trofeo: null,
         datos: r.reviews,
       }),
-    }],
+    },
+    // Cada ficha de Google es una sede; con una sola no hace falta.
+    ...(r.reviews.sedes?.length ? [{
+      nombre: 'Reseñas por sede',
+      dibujar: (lienzo, fondo) => dibujarResenasPorSede(lienzo, {
+        ...comunes,
+        titulo: 'Reseñas\npor sede',
+        personaje: elegir(recursos.personajes, 'reviews-sedes'),
+        fondo,
+        trofeo: null,
+        datos: r.reviews,
+      }),
+    }] : [])],
   },
   {
     tipo: 'loteria',
