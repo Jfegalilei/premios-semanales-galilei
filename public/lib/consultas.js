@@ -27,8 +27,9 @@
 //
 // Query 3, reviews de Google, solo de las compañías con ficha activa
 // (`google_location.is_enabled`):
-//   ficha     t1 google_location_id, t2 nombre de la ficha   (una por ficha:
-//             cada ficha es una sede, «La Causa El Poblado», «La Causa Laureles»)
+//   ficha     t1 google_location_id, t2 su sede: el nombre de la Location que
+//             apunta a la ficha (`location.google_location_id`), o el título de
+//             la ficha en Google si ninguna apunta a ella   (una por ficha)
 //   rev       n1 reviews nuevas, n2 de ellas por Gali (con clic de tarjeta o
 //             juego), n3 estrellas promedio de las de Gali, t1 la ficha
 //             (por periodo y ficha: de aquí salen las reseñas por sede)
@@ -103,8 +104,8 @@ UNION ALL SELECT 'premio',co,(r.redeemed_at-INTERVAL '5 hours')::date,i,cp.quant
     titulo: 'Query 3 · Reseñas de Google',
     descripcion: 'Calificación en Google y, de lo que llegó por Galilei, las reviews, sus estrellas y el Top 3 de empleados.',
     sql: `WITH k AS(SELECT DATE_TRUNC('month',CURRENT_DATE-INTERVAL '1 month')+INTERVAL '5 hours' d),
-gl AS(SELECT g.google_location_id gi,c.name co,g.title ti FROM google_location g JOIN company c ON c.company_id=g.company_id WHERE g.is_enabled),
-gc AS(SELECT DISTINCT ON(google_review_id) google_review_id ri,employee_id em FROM review_click WHERE google_review_id IS NOT NULL ORDER BY 1,2),
+gl AS(SELECT g.google_location_id gi,c.name co,COALESCE((SELECT name FROM location WHERE google_location_id=g.google_location_id LIMIT 1),g.title) ti FROM google_location g JOIN company c USING(company_id) WHERE g.is_enabled),
+gc AS(SELECT DISTINCT ON(google_review_id) google_review_id ri,employee_id em FROM review_click ORDER BY 1,2),
 r AS(SELECT review_id ri,co,gi,array_position(ARRAY['ONE','TWO','THREE','FOUR','FIVE'],rating) e,(create_time-INTERVAL '5 hours')::date f FROM google_review JOIN gl ON gi=google_location_id WHERE create_time>=(SELECT d FROM k)),
 rp AS(SELECT r.*,em,gc.ri IS NOT NULL ga,v.per,v.ini FROM r LEFT JOIN gc USING(ri),LATERAL(VALUES('semana',DATE_TRUNC('week',f)::date),('mes',DATE_TRUNC('month',f)::date))v(per,ini))
 SELECT 'ficha' tipo,co compania,NULL periodo,NULL fecha,NULL::uuid player_id,NULL n1,NULL n2,NULL n3,NULL n4,gi t1,ti t2,NULL::uuid employee_id FROM gl

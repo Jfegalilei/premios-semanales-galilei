@@ -340,25 +340,35 @@ export function sedeDeFicha(titulo, compania = '') {
   return sede || completo;
 }
 
-// Reseñas por sede: cada ficha de Google es una sede. Por ficha, las reviews por
-// Galilei del periodo, su promedio y la calificación en Google al cierre;
-// ordenadas de más a menos reseñas. Las fichas sin reseñas en el periodo salen
-// en 0. Solo con dos fichas o más (con una, la sede es toda la compañía y ya
-// está en la hoja de reseñas): con una, `[]`. `null` si el CSV de la query 3 es
-// de antes de que partiera las reviews por ficha.
+// Reseñas por sede. La sede de cada ficha de Google es la Location a la que
+// apunta (la query 3 manda su nombre; si no apunta a ninguna, el título de la
+// ficha, recortado con `sedeDeFicha`). Las fichas de una misma sede se suman.
+// Por sede: las reviews por Galilei del periodo, su promedio y la calificación
+// en Google al cierre; de más a menos reseñas, y las que no tuvieron salen en 0.
+// Solo con dos sedes o más (con una, la sede es toda la compañía y ya está en
+// la hoja de reseñas): con una, `[]`. `null` si el CSV de la query 3 es de antes
+// de que partiera las reviews por ficha.
 function resenasPorSede(fichas, filas, fotos, fin) {
-  if (fichas.length < 2) return [];
+  const sedes = new Map();
+  for (const ficha of fichas) {
+    const nombre = sedeDeFicha(ficha.nombre, ficha.compania) || 'Sede sin nombre';
+    if (!sedes.has(nombre)) sedes.set(nombre, []);
+    sedes.get(nombre).push(ficha.id);
+  }
+  if (sedes.size < 2) return [];
   if (filas.length && !filas.some((f) => f.ficha)) return null;
-  return fichas.map((ficha) => {
-    const r = filas.filter((f) => f.ficha === ficha.id);
+  return [...sedes].map(([nombre, ids]) => {
+    const r = filas.filter((f) => ids.includes(f.ficha));
     const suma = r.length ? sumarResenas(r) : { porGali: 0, promedio: 0 };
-    const cierre = calificacionAl(fotos.filter((f) => f.ficha === ficha.id), fin);
+    // Calificación de la sede: la de sus fichas, según cuántas calificaciones tiene cada una.
+    const cierres = ids.map((id) => calificacionAl(fotos.filter((f) => f.ficha === id), fin)).filter(Boolean);
+    const total = cierres.reduce((t, c) => t + c.total, 0);
     return {
-      nombre: sedeDeFicha(ficha.nombre, ficha.compania) || 'Sede sin nombre',
+      nombre,
       porGali: suma.porGali,
       promedioGali: suma.porGali ? suma.promedio : null,
-      calificacion: cierre ? cierre.calificacion : null,
-      totalGoogle: cierre ? cierre.total : null,
+      calificacion: total ? cierres.reduce((t, c) => t + c.calificacion * c.total, 0) / total : null,
+      totalGoogle: total || null,
     };
   }).sort((a, b) => b.porGali - a.porGali || a.nombre.localeCompare(b.nombre, 'es'));
 }

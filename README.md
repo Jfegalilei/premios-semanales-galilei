@@ -426,12 +426,13 @@ solo reviews y lotería.
    reviews, **solo lo que llegó por Galilei** (tarjeta o juego, `review_click`): cuántas y su
    promedio, sus estrellas y el Top 3 de empleados con más reviews de 5 estrellas. No sale nada
    que deje ver cuáles no fueron por Galilei (ni el total de reviews nuevas ni el porcentaje).
-   **Reseñas por sede** (`dibujarResenasPorSede`, misma hoja de código), solo para las compañías
-   con dos fichas de Google o más (cada ficha es una sede: «La Causa El Poblado», «La Causa
-   Laureles»): una tarjeta por sede con sus reseñas por Galilei, su promedio, qué parte del total
-   de la compañía consiguió y la calificación de esa ficha en Google. Con una sola ficha no sale.
-   El título de la ficha viene completo («Restaurante Mekong Laureles»): `sedeDeFicha` deja solo
-   la sede (último tramo tras « - », o sin el nombre de la compañía ni «Restaurante»/«Sushi»).
+   **Reseñas por sede** (`dibujarResenasPorSede`, misma hoja de código, con «Gracias a Galilei»
+   bajo el título), solo para las compañías con dos sedes o más: una tarjeta por sede con sus
+   reseñas por Galilei, su promedio, qué parte del total de la compañía consiguió y su calificación
+   en Google. La sede de cada ficha de Google es la **Location** que apunta a ella
+   (`location.google_location_id`); las fichas de una misma Location se suman. Si una ficha no
+   apunta a ninguna, se usa su título recortado (`sedeDeFicha`: «Restaurante Mekong Laureles» →
+   «Laureles»). Con una sola sede no sale.
 4. **GaliLotería** (`public/lib/hoja-loteria.js`), para todas menos Auteco, que en su lugar
    recibe la **Lotería Auteco** (misma hoja, con sus requisitos, sus clasificados por rol y su
    propia rifa en `premiosConfig/loteriaAuteco`): la última rifa (premio, ganador, empresa y botón al live, que en el PDF es un
@@ -475,7 +476,7 @@ premios y chocaba con el título.
 
 Salen de **cuatro queries** (`public/lib/consultas.js`), que la página muestra con botón «Copiar».
 No llevan parámetros —traen todas las compañías desde el primer día del mes anterior—, así que se
-pegan siempre igual en Analytics Chat. Miden unos 1.870, 1.550, 1.830 y 1.490 caracteres con la
+pegan siempre igual en Analytics Chat. Miden unos 1.870, 1.550, 1.880 y 1.490 caracteres con la
 instrucción delante: el chat corta el mensaje hacia los 1.900.
 
 1. **Conocimiento**, ya agregada en SQL por compañía y periodo (cada semana de lunes a domingo y
