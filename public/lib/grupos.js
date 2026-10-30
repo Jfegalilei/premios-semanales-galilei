@@ -20,7 +20,9 @@ export function armarGrupo(grupo, catalogo, imagenes) {
   const singular = entrada?.etiqueta?.singular || grupo.propuesta?.singular || grupo.id;
   const plural = entrada?.etiqueta?.plural || grupo.propuesta?.plural || singular;
   const desglose = entrada?.desglose || grupo.propuesta?.desglose || 'por-nombre';
-  const unidad = entrada?.unidadMonto ?? grupo.propuesta?.unidadMonto ?? null;
+  // Por monto sin unidad guardada (lo dado de alta desde la biblioteca): pesos.
+  const unidad = entrada?.unidadMonto ?? grupo.propuesta?.unidadMonto
+    ?? (desglose === 'por-monto' ? 'pesos' : null);
   const nombre = grupo.conteo === 1 ? singular : plural;
   // Un item abierto por monto lo lleva en el chip y ya no repite la lista.
   const sufijo = grupo.monto ? ` de ${formatearMonto(grupo.monto, unidad)}` : '';

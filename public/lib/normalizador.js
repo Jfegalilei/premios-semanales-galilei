@@ -86,7 +86,7 @@ export function normalizarPremio(texto, catalogo = []) {
         // "CinecoPass Premium x2" ese número es el "2" de la cantidad de entradas,
         // no un precio: leerlo como monto le ponía un valor de $2 al premio.
         monto: entrada.desglose === 'por-monto' ? montoSuelto(bruto) : null,
-        unidadMonto: entrada.unidadMonto || null,
+        unidadMonto: entrada.desglose === 'por-monto' ? entrada.unidadMonto || 'pesos' : entrada.unidadMonto || null,
         propuesta: null,
       };
     }
@@ -106,6 +106,13 @@ export function normalizarPremio(texto, catalogo = []) {
   }
 
   // 3. El texto completo es la familia (Netflix, Freidora de Aire, Barril Ahumador...).
+  // Si en la biblioteca esa familia va «Agrupada por monto», el monto se saca del
+  // texto aunque no case con ningún patrón («Bono Frisby 50000 pesos»): sin él no
+  // hay total repartido.
+  const entrada = catalogo.find((p) => p.id === slug(bruto));
+  if (entrada?.desglose === 'por-monto') {
+    return { id: entrada.id, monto: montoSuelto(bruto), unidadMonto: entrada.unidadMonto || 'pesos', propuesta: null };
+  }
   return {
     id: slug(bruto),
     monto: null,
