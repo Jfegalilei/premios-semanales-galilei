@@ -1,6 +1,8 @@
 // Parseo del export de insights: RFC4180 (comillas dobles, saltos dentro de campo)
 // más el BOM que Excel/el exportador dejan al principio de la primera columna.
 
+import { esAdminDeOtraCompania } from './admins.js';
+
 export function parsearCSV(texto) {
   const limpio = texto.replace(/^﻿/, '');
   const filas = [];
@@ -83,7 +85,7 @@ export function leerEntregas(texto) {
     jugador: (f[iJugador] || '').trim(),
     playerId: iPlayerId === -1 ? '' : (f[iPlayerId] || '').trim(),
     fecha: iFecha === -1 ? '' : (f[iFecha] || '').trim().slice(0, 10),
-  })).filter((r) => r.compania && r.premio);
+  })).filter((r) => r.compania && r.premio && !esAdminDeOtraCompania(r.playerId, r.compania));
 }
 
 function normalizarClave(h) {

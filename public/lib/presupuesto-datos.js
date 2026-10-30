@@ -5,6 +5,7 @@
 import { aNumero } from './reporte-datos.js';
 import { formatearNombre } from './normalizador.js';
 import { MESES, MESES_LARGOS } from './periodos.js';
+import { esAdminDeOtraCompania } from './admins.js';
 
 // Premios anunciados que aún no se pueden reclamar: no salen en el catálogo. La
 // query ya los quita; esto cubre los CSV bajados antes del filtro.
@@ -114,7 +115,8 @@ export function interpretarPresupuesto(registros) {
   const datos = datosVacios();
   for (const r of registros) {
     if (!r.compania) continue;
-    const base = { compania: r.compania.trim(), fecha: (r.fecha || '').slice(0, 10) };
+    if (esAdminDeOtraCompania(r.playerid, r.compania)) continue;
+    const base ={ compania: r.compania.trim(), fecha: (r.fecha || '').slice(0, 10) };
     if (r.tipo === 'presupuesto') {
       datos.presupuestos.push({ ...base, monto: aNumero(r.n1), loteria: aNumero(r.n2), moneda: r.t1 || 'COP' });
     } else if (r.tipo === 'catalogo') {

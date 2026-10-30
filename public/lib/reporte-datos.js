@@ -5,6 +5,7 @@ import { leerEntregas, leerTabla } from './csv.js';
 import { tipoDeArchivo } from './consultas.js';
 import { agruparPorFamilia, formatearMonto, formatearNombre } from './normalizador.js';
 import { hoyLocal, sumarDias } from './periodos.js';
+import { esAdminDeOtraCompania } from './admins.js';
 
 // "2,026" -> 2026 · "12.5" -> 12.5. Analytics exporta con coma de miles.
 export function aNumero(texto) {
@@ -84,6 +85,7 @@ export function interpretarTabla({ registros }) {
   const datos = { resumenes: [], locations: [], dias: [], loterias: [], autecos: [], companias: [], premios: [], ...SIN_REVIEWS() };
   for (const r of registros) {
     if (!r.compania) continue;
+    if (esAdminDeOtraCompania(r.playerid, r.compania)) continue;
     const fecha = (r.fecha || '').slice(0, 10);
     const periodo = { compania: r.compania, periodo: r.periodo, inicio: fecha };
     if (r.tipo === 'resumen') {
