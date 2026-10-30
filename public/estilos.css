@@ -126,6 +126,22 @@ main { padding: 24px 28px 64px; display: grid; gap: 20px; }
 .faltante .miniatura:hover { border-color: var(--lima); }
 .faltante .campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .faltante .textos { color: var(--tenue); font-size: 11.5px; grid-column: 1 / -1; }
+.faltante .combinar {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end;
+  padding-top: 10px; border-top: 1px dashed var(--borde);
+}
+.faltante .combinar .boton { height: 38px; }
+.faltante .alias { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 11.5px; color: var(--tenue); }
+.faltante .chip-alias {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--fondo); border: 1px solid var(--borde); border-radius: 999px;
+  padding: 2px 4px 2px 10px; color: var(--texto);
+}
+.faltante .chip-alias button {
+  background: none; border: 0; color: var(--tenue); cursor: pointer; font: inherit; font-size: 14px; line-height: 1; padding: 0 4px;
+}
+.faltante .chip-alias button:hover { color: var(--lima); }
 
 label { display: grid; gap: 5px; font-size: 12px; color: var(--tenue); }
 .info-fechas { font-size: 11px; color: var(--tenue); opacity: .85; }
@@ -182,6 +198,13 @@ input[type="text"]:disabled {
   margin-bottom: 18px;
 }
 .controles label { min-width: 0; }
+.rango-personalizado { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; min-width: 0; }
+.rango-personalizado[hidden] { display: none; }
+input[type="date"] {
+  width: 100%; min-width: 0;
+  background: var(--fondo); border: 1px solid var(--borde); color: var(--texto);
+  border-radius: 7px; padding: 7px 8px; font: inherit; color-scheme: dark;
+}
 /* Los botones van SIEMPRE en su propia fila, ocupando el ancho entero: metidos en
    una celda de la rejilla se montaban encima del selector de Composición. */
 .controles .acciones {

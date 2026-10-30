@@ -104,9 +104,25 @@ async function init() {
   });
   escucharArrastre($('#zonaVacia'), leerArchivos);
   $('#campoPeriodo').addEventListener('change', (e) => {
-    estado.periodo = estado.periodos.find((p) => p.id === e.target.value) || null;
+    if (e.target.value === 'personalizado') {
+      // Arranca con las fechas del periodo que estaba elegido, para ajustarlas.
+      const previo = estado.periodo;
+      estado.periodo = periodoPersonalizado(previo?.inicio || hoyLocal(), previo?.fin || hoyLocal());
+    } else {
+      estado.periodo = estado.periodos.find((p) => p.id === e.target.value) || null;
+    }
+    pintarPeriodos();
     armarCompanias();
   });
+  ['#campoDesde', '#campoHasta'].forEach((sel) => $(sel).addEventListener('change', () => {
+    let desde = $('#campoDesde').value;
+    let hasta = $('#campoHasta').value;
+    if (!desde || !hasta) return;
+    if (desde > hasta) [desde, hasta] = [hasta, desde];
+    estado.periodo = periodoPersonalizado(desde, hasta);
+    pintarPeriodos();
+    armarCompanias();
+  }));
 
   ['#campoKicker', '#campoTitulo', '#campoEtiqueta'].forEach((sel) => {
     $(sel).addEventListener('input', pintar);
@@ -356,8 +372,10 @@ function alCambiarDatos() {
   estado.periodos = fechas.length ? periodosEntre(fechas[0], ultima > hoy ? ultima : hoy) : [];
 
   // Por defecto, la última semana ya terminada y completa (o la última terminada).
+  // Unas fechas personalizadas se respetan aunque lleguen datos nuevos.
   const terminada = (p) => p.tipo === 'semana' && p.fin < hoy;
-  estado.periodo = estado.periodos.find((p) => p.id === estado.periodo?.id)
+  estado.periodo = (estado.periodo?.tipo === 'personalizado' && estado.periodo)
+    || estado.periodos.find((p) => p.id === estado.periodo?.id)
     || estado.periodos.find((p) => terminada(p) && !incompleto(p))
     || estado.periodos.find(terminada)
     || estado.periodos[0] || null;
@@ -383,7 +401,33 @@ function pintarPeriodos() {
     }).join('');
     return opciones ? `<optgroup label="${tipo === 'semana' ? 'Semanas' : 'Meses'}">${opciones}</optgroup>` : '';
   }).join('');
-  if (estado.periodo) select.value = estado.periodo.id;
+
+  // Cualquier rango de días: se elige aquí y se ajusta con «Desde» y «Hasta».
+  const propio = estado.periodo?.tipo === 'personalizado' ? estado.periodo : null;
+  if (estado.periodos.length) {
+    const falta = propio && incompleto(propio);
+    const nota = !propio ? '' : !entregasDe(propio).length ? ' · sin premios' : falta ? notaIncompleto(falta) : '';
+    select.insertAdjacentHTML('beforeend', `<optgroup label="Otro"><option value="personalizado">${
+      propio ? `${propio.nombre}${nota}` : 'Fechas personalizadas…'}</option></optgroup>`);
+  }
+  if (estado.periodo) select.value = propio ? 'personalizado' : estado.periodo.id;
+
+  $('#rangoPersonalizado').hidden = !propio;
+  if (propio) {
+    $('#campoDesde').value = propio.inicio;
+    $('#campoHasta').value = propio.fin;
+  }
+}
+
+function periodoPersonalizado(inicio, fin) {
+  return {
+    tipo: 'personalizado',
+    id: `personalizado-${inicio}-${fin}`,
+    inicio,
+    fin,
+    nombre: inicio === fin ? diaMes(inicio) : `${diaMes(inicio)} – ${diaMes(fin)}`,
+    parcial: false,
+  };
 }
 
 // Las compañías con premios en el periodo elegido.
@@ -496,6 +540,11 @@ function crearFilaPremio(id, { grupo = null, entrada = null } = {}) {
     ? `${id} · ${grupo.conteo} entregas · ${grupo.textos.join(' / ')}`
     : `${id}${imagenActual ? '' : ' · sin recorte'}`;
 
+  // Premio del CSV que en realidad es uno de la biblioteca con otro nombre:
+  // se combina con ese. En la biblioteca, los nombres ya combinados se pueden separar.
+  if (grupo) fila.querySelector('.campos').appendChild(crearCombinar(id, grupo, entrada));
+  else if (entrada?.alias?.length) fila.querySelector('.campos').appendChild(crearAlias(entrada));
+
   // Se pinta sobre el <img> que ya existe: reescribir el innerHTML de la etiqueta
   // se llevaría por delante el input de archivo y la fila dejaría de aceptar otro.
   const vista = miniatura.querySelector('img');
@@ -562,6 +611,88 @@ function crearFilaPremio(id, { grupo = null, entrada = null } = {}) {
   });
 
   return fila;
+}
+
+// Combinar = añadir los textos exactos del CSV a los `alias` del premio elegido.
+// El normalizador mira los alias antes que nada, así que desde ese momento esos
+// textos cuentan como ese premio (con su recorte, nombre y valor), en esta pieza,
+// en las semanas siguientes y en el reporte para clientes. No hace falta ningún
+// campo nuevo en Firestore, y se deshace quitando el alias en la biblioteca.
+function crearCombinar(id, grupo, entrada) {
+  const caja = document.createElement('div');
+  caja.className = 'combinar';
+  const destinos = estado.catalogo
+    .filter((p) => p.id !== id && !p.ignorar)
+    .map((p) => ({ id: p.id, nombre: p.etiqueta?.singular || p.id, recorte: estado.imagenes.has(p.id) }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  caja.innerHTML = `
+    <label><span>¿Es el mismo que uno que ya existe? Combinar con…</span>
+      <select>
+        <option value="">Elegir premio de la biblioteca</option>
+        ${destinos.map((d) => `<option value="${escapar(d.id)}">${escapar(d.nombre)}${d.recorte ? '' : ' (sin recorte)'}</option>`).join('')}
+      </select>
+    </label>
+    <button type="button" class="boton" disabled>Combinar</button>`;
+
+  const select = caja.querySelector('select');
+  const boton = caja.querySelector('button');
+  select.addEventListener('change', () => { boton.disabled = !select.value; });
+  boton.addEventListener('click', async () => {
+    const destino = estado.catalogo.find((p) => p.id === select.value);
+    if (!destino) return;
+    const textos = [...new Set(grupo.textos.map((t) => t.trim()).filter(Boolean))];
+    const nombre = destino.etiqueta?.singular || destino.id;
+    if (!confirm(`«${textos.join('» / «')}» pasará a contar como «${nombre}», también en las semanas siguientes. ¿Combinar?`)) return;
+
+    boton.disabled = true;
+    boton.textContent = 'Combinando…';
+    try {
+      const minus = new Set(textos.map((t) => t.toLowerCase()));
+      const alias = [...(destino.alias || [])];
+      for (const t of textos) if (!alias.some((a) => a.toLowerCase() === t.toLowerCase())) alias.push(t);
+      // Si el premio de origen ya estaba en la biblioteca con esos textos como
+      // alias, se le quitan: el primer alias que casa gana y le seguiría tocando a él.
+      const escrituras = [guardarPremio(destino.id, { alias })];
+      if (entrada?.alias?.some((a) => minus.has(a.toLowerCase()))) {
+        escrituras.push(guardarPremio(entrada.id, {
+          alias: entrada.alias.filter((a) => !minus.has(a.toLowerCase())),
+        }));
+      }
+      // Firestore avisa del cambio y `alCambiarCatalogo` reagrupa y repinta.
+      await Promise.all(escrituras);
+    } catch (err) {
+      alert(`No se pudo combinar: ${err.message}`);
+      boton.disabled = false;
+      boton.textContent = 'Combinar';
+    }
+  });
+  return caja;
+}
+
+// En la biblioteca: los nombres combinados con este premio, cada uno con su
+// botón para separarlo otra vez.
+function crearAlias(entrada) {
+  const caja = document.createElement('div');
+  caja.className = 'alias';
+  caja.innerHTML = '<span>También cuenta como este premio:</span>';
+  for (const texto of entrada.alias) {
+    const chip = document.createElement('span');
+    chip.className = 'chip-alias';
+    chip.textContent = texto;
+    const quitar = document.createElement('button');
+    quitar.type = 'button';
+    quitar.title = 'Separar: vuelve a contar como un premio aparte';
+    quitar.textContent = '×';
+    quitar.addEventListener('click', async () => {
+      if (!confirm(`«${texto}» dejará de contar como «${entrada.etiqueta?.singular || entrada.id}». ¿Separar?`)) return;
+      quitar.disabled = true;
+      await guardarPremio(entrada.id, { alias: entrada.alias.filter((a) => a !== texto) })
+        .catch((err) => { alert(`No se pudo separar: ${err.message}`); quitar.disabled = false; });
+    });
+    chip.appendChild(quitar);
+    caja.appendChild(chip);
+  }
+  return caja;
 }
 
 // Panel de urgencia: solo los premios del CSV cargado que aún no tienen recorte.

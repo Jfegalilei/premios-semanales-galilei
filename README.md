@@ -169,6 +169,10 @@ El export trae el premio como texto libre. `normalizador.js` lo resuelve en este
 1. **Alias del catálogo** — la vía para corregir a mano sin tocar código. Añade el texto
    exacto al array `alias` de la entrada y todas las variantes caen en la misma familia.
    Ya se usa para que `CinecoPass Premium x2` cuente con `cinecopass-2d-x2`.
+   Desde la página: en **Premios sin imagen**, «Combinar con…» añade los textos de ese
+   premio a los alias del que se elija (para cuando a un premio le cambian el nombre). En la
+   **Biblioteca**, cada premio lista sus alias y la × los separa otra vez. Ojo: el alias es
+   el texto exacto, así que un bono con otro monto en el texto no queda combinado.
 2. **Patrones con monto** — `40.00 GaliTickets`, `Bono Nequi de 10000.00 pesos`,
    `Bono Adidas $300000.00`, `Zara ($100.000)`. El monto solo sirve para el desglose.
 3. **El texto completo** como familia — `Netflix`, `Freidora de Aire`, `Barril Ahumador`.
