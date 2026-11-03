@@ -574,6 +574,9 @@ function avisos(r) {
   if (r.reviews?.estrellasViejas) {
     lista.push({ texto: 'El CSV de la query 3 es de una versión vieja (sus estrellas cuentan todas las reseñas): vuelve a correrla y súbela' });
   }
+  if (r.servicios.training && r.premios.sinCosto) {
+    lista.push({ texto: 'El CSV de la query 2 es de una versión vieja (no trae el costo de la plataforma): vuelve a correrla y súbela' });
+  }
   if (r.servicios.training && r.premios.sinValor.length) {
     lista.push({
       texto: `Sin valor en la biblioteca: ${r.premios.sinValor.map((f) => f.nombre).join(', ')}. `

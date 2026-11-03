@@ -153,6 +153,8 @@ export function interpretarTabla({ registros }) {
         sede: fueraDelReporte(r.t4) ? '' : (r.t4 || '').trim(),
         nivel: r.n2 === '' || r.n2 == null ? null : aNumero(r.n2),
         conSede: 't4' in r,
+        // Lo que costó en la plataforma; null en un CSV de antes de traerlo.
+        costo: r.n3 === '' || r.n3 == null ? null : aNumero(r.n3),
       });
     }
   }
@@ -429,9 +431,12 @@ export function premiosEntregados(datos, compania, periodo, catalogo = []) {
 
     let costo = null;
     let detalle = '';
-    // Bonos: cada entrega vale lo que dice su propio texto. Físicos: el valor de
-    // la biblioteca por cada entrega.
-    if (desglose === 'por-monto' && unidad === 'pesos' && g.entregas.some((e) => e.monto > 0)) {
+    // Lo que costó en la plataforma, si la query 2 lo trae en todas sus
+    // entregas. Con un CSV de antes: los bonos, lo que dice su propio texto; los
+    // físicos, el valor de la biblioteca por cada entrega.
+    if (g.entregas.length && g.entregas.every((e) => e.costo != null)) {
+      costo = g.entregas.reduce((s, e) => s + e.costo, 0);
+    } else if (desglose === 'por-monto' && unidad === 'pesos' && g.entregas.some((e) => e.monto > 0)) {
       costo = g.entregas.reduce((s, e) => s + (e.monto || 0), 0);
       const veces = new Map();
       for (const e of g.entregas) if (e.monto) veces.set(e.monto, (veces.get(e.monto) || 0) + 1);
@@ -464,6 +469,8 @@ export function premiosEntregados(datos, compania, periodo, catalogo = []) {
     sedes: premiosPorSede(contadas),
     // CSV de una query 2 vieja: sus premios no traen sede.
     sinSedes: contadas.length > 0 && !contadas.some((e) => e.conSede),
+    // CSV de una query 2 de antes de traer el costo: la inversión sale de la biblioteca.
+    sinCosto: contadas.length > 0 && contadas.every((e) => e.costo == null),
   };
 }
 

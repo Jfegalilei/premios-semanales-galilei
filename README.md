@@ -530,9 +530,14 @@ GaliMisión en la lista de experiencias, y se arma el nombre del premio (`${quan
 ### La inversión
 
 Mismo agrupado que la pieza semanal (`agruparPorFamilia` + biblioteca de Firestore), sin
-GaliTickets ni lo marcado con `ignorar`. Bonos (`desglose: por-monto`): suma el monto de cada
-entrega. Premios físicos: `valor` de la biblioteca × entregas. Los que no tienen valor salen como
-«Sin valor», no suman, y la hoja lo dice bajo el total; se corrigen en la Biblioteca de premios.
+GaliTickets ni lo marcado con `ignorar`. Suma **lo que costó cada entrega en la plataforma**
+(`n3` de la query 2: `reward.cost`; en un Bono Nequi, lo pagado, `amount_cop`), igual que el
+reporte de presupuesto y que lo que responde Analytics Chat.
+
+Con un CSV de la query 2 de antes de traer ese costo, sale un aviso para volver a correrla y
+mientras tanto se calcula como antes: bonos (`desglose: por-monto`), el monto de cada entrega;
+premios físicos, `valor` de la biblioteca × entregas. Los que no tienen valor salen como «Sin
+valor» y no suman.
 
 ### El PDF
 
