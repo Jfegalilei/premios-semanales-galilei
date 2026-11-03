@@ -532,7 +532,8 @@ GaliMisión en la lista de experiencias, y se arma el nombre del premio (`${quan
 Mismo agrupado que la pieza semanal (`agruparPorFamilia` + biblioteca de Firestore), sin
 GaliTickets ni lo marcado con `ignorar`. Suma **lo que costó cada entrega en la plataforma**
 (`n3` de la query 2: `reward.cost`; en un Bono Nequi, lo pagado, `amount_cop`), igual que el
-reporte de presupuesto y que lo que responde Analytics Chat.
+reporte de presupuesto. Lo que la plataforma no le pone costo (los productos propios de la
+compañía, como la GuacaBurger de Lavocadería) cuenta 0, aunque tenga valor en la biblioteca.
 
 Con un CSV de la query 2 de antes de traer ese costo, sale un aviso para volver a correrla y
 mientras tanto se calcula como antes: bonos (`desglose: por-monto`), el monto de cada entrega;

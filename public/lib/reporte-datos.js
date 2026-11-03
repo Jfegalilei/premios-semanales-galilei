@@ -153,8 +153,9 @@ export function interpretarTabla({ registros }) {
         sede: fueraDelReporte(r.t4) ? '' : (r.t4 || '').trim(),
         nivel: r.n2 === '' || r.n2 == null ? null : aNumero(r.n2),
         conSede: 't4' in r,
-        // Lo que costó en la plataforma; null en un CSV de antes de traerlo.
-        costo: r.n3 === '' || r.n3 == null ? null : aNumero(r.n3),
+        // Lo que costó en la plataforma: vacío es 0 (los productos propios de la
+        // compañía no tienen costo). null en un CSV de antes de traerlo.
+        costo: 'n3' in r ? aNumero(r.n3) || 0 : null,
       });
     }
   }
