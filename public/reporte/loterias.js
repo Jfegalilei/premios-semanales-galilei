@@ -204,9 +204,13 @@ export function montarLoterias(contenedor, { alCambiar, alError, hoy }) {
       pintarGuardado(t, 'guardando');
       try {
         await guardarLoteria(doc, completa);
-        const actual = pendientes[doc].datos;
-        for (const [clave, valor] of Object.entries(datos)) if (actual[clave] === valor) delete actual[clave];
-        if (!Object.keys(actual).length) delete pendientes[doc];
+        // Otro envío (el del blur y el de la espera salen a la vez) pudo
+        // terminar antes y dejar el documento ya sin pendientes.
+        const actual = pendientes[doc]?.datos;
+        if (actual) {
+          for (const [clave, valor] of Object.entries(datos)) if (actual[clave] === valor) delete actual[clave];
+          if (!Object.keys(actual).length) delete pendientes[doc];
+        }
         pintarGuardado(t, pendientes[doc] ? 'pendiente' : 'guardado');
       } catch (err) {
         pintarGuardado(t, 'error', err);
