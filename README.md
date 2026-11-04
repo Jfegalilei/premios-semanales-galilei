@@ -419,7 +419,7 @@ solo reviews y lotería.
 1. **Reporte *Compañía*** (`public/lib/hoja-conocimiento.js`): jugadores activos X/Y (en la semana, quien jugó al menos una vez; en el mes,
    quien jugó 5 partidas o más), horas
    capacitadas, preguntas respondidas, qué se capacita, gráfico de preguntas respondidas por día
-   y Top 3 de sedes más activas (las `location` de la base). Las tarjetas llevan un velo oscuro bajo el cristal para que se lean sobre cualquier
+   y Top 3 de sedes más activas (las `location` de la base; cuenta activos con la misma regla). Las tarjetas llevan un velo oscuro bajo el cristal para que se lean sobre cualquier
    escenario.
 2. **Premios entregados**: la misma pieza de la semanal (`dibujarDiapositiva`), con la **inversión
    total** en verde bajo el título. Con más de siete premios se parte en varias páginas, igual

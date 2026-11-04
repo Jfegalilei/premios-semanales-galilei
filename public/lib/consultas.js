@@ -6,8 +6,9 @@
 // su primer día; las semanas van de lunes a domingo, como en la página):
 //   resumen  n1 jugadores activos (semana: con partidas; mes: con 5+ partidas
 //            en el mes), n2 juegos, n3 segundos, n4 preguntas respondidas
-//   loc      n1 jugadores con partidas, n2 jugadores activos de la sede (location),
-//            t1 nombre   (las 3 con mayor porcentaje de jugadores con partidas)
+//   loc      n1 jugadores activos (como en resumen: en el mes, 5+ partidas),
+//            n2 jugadores activos de la sede (location), t1 nombre
+//            (las 3 con mayor porcentaje de jugadores activos)
 //   lot      n1 clasificados a la GaliLotería (15+ partidas en el mes y 30+
 //            puntos en al menos una)   (solo meses)
 //   dia      fecha, n1 preguntas respondidas ese día   (para el gráfico; sin periodo)
@@ -91,7 +92,7 @@ gp AS(SELECT g.*,co,l,v.per,v.ini FROM g JOIN pc ON i=pi,LATERAL(VALUES('semana'
 j AS(SELECT co,per,ini,pi,l,COUNT(*) n,SUM(s) s,SUM(y) y,MAX(z) z FROM gp GROUP BY 1,2,3,4,5),
 lc AS(SELECT l,COUNT(*) t FROM pc GROUP BY 1)
 SELECT 'resumen' tipo,co compania,per periodo,ini fecha,NULL::uuid player_id,COUNT(*)FILTER(WHERE per='semana' OR n>=5) n1,SUM(n) n2,SUM(s) n3,SUM(y) n4,NULL t1,NULL t2 FROM j GROUP BY 2,3,4
-UNION ALL SELECT 'loc',co,per,ini,NULL,a,t,NULL,NULL,o.name,NULL FROM(SELECT co,per,ini,j.l,COUNT(*) a,t,ROW_NUMBER()OVER(PARTITION BY co,per,ini ORDER BY COUNT(*)::float/t DESC,COUNT(*) DESC)r FROM j JOIN lc ON lc.l=j.l GROUP BY 1,2,3,4,6)x JOIN location o ON o.location_id=x.l WHERE r<=3
+UNION ALL SELECT 'loc',co,per,ini,NULL,a,t,NULL,NULL,o.name,NULL FROM(SELECT co,per,ini,j.l,COUNT(*) a,t,ROW_NUMBER()OVER(PARTITION BY co,per,ini ORDER BY COUNT(*)::float/t DESC,COUNT(*) DESC)r FROM j JOIN lc ON lc.l=j.l WHERE per='semana' OR n>=5 GROUP BY 1,2,3,4,6)x JOIN location o ON o.location_id=x.l WHERE r<=3
 UNION ALL SELECT 'lot',co,per,ini,NULL,COUNT(*)FILTER(WHERE n>=15 AND z>=30),NULL,NULL,NULL,NULL,NULL FROM j WHERE per='mes' GROUP BY 2,3,4
 UNION ALL SELECT 'dia',co,NULL,f,NULL,SUM(y),NULL,NULL,NULL,NULL,NULL FROM g JOIN pc ON i=pi GROUP BY 2,4`,
   },

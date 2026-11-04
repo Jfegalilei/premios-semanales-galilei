@@ -140,7 +140,9 @@ export function csvDeEjemplo() {
       const clasifica = (x) => x.n >= 15 && x.z >= 30;
       fila('lot', COMPANIA, a.per, a.ini, '', p.filter(clasifica).length, p.filter((x) => x.n >= 10 && !clasifica(x)).length, '', '', '', '', '', '');
     }
-    SEDES.map(([nombre, total], k) => ({ nombre, total, activos: [...a.jugadores].filter((i) => sedeDe(i) === k).length }))
+    const cuentan = a.per === 'mes' ? [...a.partidas].filter(([, x]) => x.n >= 5).map(([i]) => i) : [...a.jugadores];
+    SEDES.map(([nombre, total], k) => ({ nombre, total, activos: cuentan.filter((i) => sedeDe(i) === k).length }))
+      .filter((l) => l.activos)
       .sort((x, y) => y.activos / y.total - x.activos / x.total || y.activos - x.activos)
       .slice(0, 3)
       .forEach((l) => fila('loc', COMPANIA, a.per, a.ini, '', l.activos, l.total, '', '', q(l.nombre), '', '', ''));

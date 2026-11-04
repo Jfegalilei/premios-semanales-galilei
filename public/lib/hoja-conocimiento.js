@@ -86,7 +86,7 @@ export function dibujarConocimiento(canvas, op) {
     d.juegos ? entero(d.preguntas) : '—',
   ]);
   tarjetaGrafico(ctx, cajas.grafico, d.porDia);
-  cajaTop(ctx, cajas.top, d.locations, d.juegos > 0);
+  cajaTop(ctx, cajas.top, d.locations, d.juegos > 0, d.mensual && !d.activos);
 
   ctx.restore();
   return canvas;
@@ -413,7 +413,8 @@ function tarjetaGrafico(ctx, c, serie) {
 
 // Las tres sedes con mayor porcentaje de sus jugadores con partidas: el
 // porcentaje grande a la derecha y, a su lado, cuántos de cuántos.
-function cajaTop(ctx, c, top, huboPartidas) {
+// En el mes solo cuentan quienes jugaron 5 partidas o más (como en activos).
+function cajaTop(ctx, c, top, huboPartidas, nadieConCinco) {
   const t = H.top;
   cajaOscura(ctx, c.x, c.y, c.w, c.h);
   const x = c.x + H.pad;
@@ -423,7 +424,8 @@ function cajaTop(ctx, c, top, huboPartidas) {
     ctx.fillStyle = ESTILO.neutral07;
     ctx.font = fG(500, 28);
     ctx.textBaseline = 'top';
-    ctx.fillText(huboPartidas ? 'Sin sedes asignadas' : 'Sin partidas en este periodo', x, c.y + t.padY + t.titulo * 1.4 + 20);
+    const vacio = !huboPartidas ? 'Sin partidas en este periodo' : nadieConCinco ? 'Nadie jugó 5 partidas o más' : 'Sin sedes asignadas';
+    ctx.fillText(vacio,x, c.y + t.padY + t.titulo * 1.4 + 20);
     return;
   }
 
