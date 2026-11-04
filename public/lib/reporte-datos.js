@@ -400,7 +400,10 @@ export function conocimiento(datos, compania, periodo) {
   const info = datos.companias.find((c) => c.compania === compania);
 
   return {
+    // En el mes solo cuenta como activo quien jugó 5 partidas o más (lo filtra
+    // la query 1); en la semana, quien jugó al menos una.
     activos: r ? r.activos : 0,
+    mensual: periodo.tipo === 'mes',
     totalJugadores: info ? info.totalJugadores : null,
     experiencias: info ? info.experiencias : [],
     horas: r ? r.segundos / 3600 : 0,

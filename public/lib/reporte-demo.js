@@ -132,7 +132,8 @@ export function csvDeEjemplo() {
   }
 
   for (const a of agregado.values()) {
-    fila('resumen', COMPANIA, a.per, a.ini, '', a.jugadores.size, a.juegos, a.segundos,
+    const activos = a.per === 'mes' ? [...a.partidas.values()].filter((x) => x.n >= 5).length : a.jugadores.size;
+    fila('resumen', COMPANIA, a.per, a.ini, '', activos, a.juegos, a.segundos,
       a.preguntas, '', '', '', '');
     if (a.per === 'mes') {
       const p = [...a.partidas.values()];

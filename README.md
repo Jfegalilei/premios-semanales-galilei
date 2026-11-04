@@ -416,7 +416,8 @@ experiencias activas asignadas o premios en los datos), las hojas 1 y 2; con rev
 de Google activa), la 3; con cualquiera de los dos, la 4. Una compañía de solo reviews recibe
 solo reviews y lotería.
 
-1. **Reporte *Compañía*** (`public/lib/hoja-conocimiento.js`): jugadores activos X/Y, horas
+1. **Reporte *Compañía*** (`public/lib/hoja-conocimiento.js`): jugadores activos X/Y (en la semana, quien jugó al menos una vez; en el mes,
+   quien jugó 5 partidas o más), horas
    capacitadas, preguntas respondidas, qué se capacita, gráfico de preguntas respondidas por día
    y Top 3 de sedes más activas (las `location` de la base). Las tarjetas llevan un velo oscuro bajo el cristal para que se lean sobre cualquier
    escenario.
