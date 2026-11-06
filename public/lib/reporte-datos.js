@@ -268,11 +268,11 @@ function calificacionAl(fotos, fecha) {
   return { calificacion: lista.reduce((s, f) => s + f.calificacion * f.total, 0) / total, total };
 }
 
-// Hoja de reviews: la calificación general en Google y, de las
-// reviews, solo lo que llegó por Galilei (clic de la tarjeta o del juego): nada
-// que deje ver cuáles no fueron por Galilei. `null` si la compañía no tiene
-// ficha de Google activa: no tiene el servicio y la hoja no sale. `nuevas`
-// (todas) solo sirve para saber si hubo actividad; no sale en la hoja.
+// Hoja de reviews: la calificación general en Google, lo que llegó por Galilei
+// (clic de la tarjeta o del juego) y `nuevas`, todas las reviews nuevas del
+// periodo, por Galilei o no (sale al pie de la tarjeta de Galilei: algunos
+// restaurantes la usan de métrica). `null` si la compañía no tiene ficha de
+// Google activa: no tiene el servicio y la hoja no sale.
 export function reviews(datos, compania, periodo) {
   const fichas = datos.fichas.filter((f) => f.compania === compania);
   if (!fichas.length) return null;
@@ -348,7 +348,7 @@ export function sedeDeFicha(titulo, compania = '') {
 // Reseñas por sede. La sede de cada ficha de Google es la Location a la que
 // apunta (la query 3 manda su nombre; si no apunta a ninguna, el título de la
 // ficha, recortado con `sedeDeFicha`). Las fichas de una misma sede se suman.
-// Por sede: las reviews por Galilei del periodo, su promedio y la calificación
+// Por sede: las reviews nuevas del periodo, las de Galilei, su promedio y la calificación
 // en Google al cierre; de más a menos reseñas, y las que no tuvieron salen en 0.
 // Solo con dos sedes o más (con una, la sede es toda la compañía y ya está en
 // la hoja de reseñas): con una, `[]`. `null` si el CSV de la query 3 es de antes
@@ -364,12 +364,13 @@ function resenasPorSede(fichas, filas, fotos, fin) {
   if (filas.length && !filas.some((f) => f.ficha)) return null;
   return [...sedes].map(([nombre, ids]) => {
     const r = filas.filter((f) => ids.includes(f.ficha));
-    const suma = r.length ? sumarResenas(r) : { porGali: 0, promedio: 0 };
+    const suma = r.length ? sumarResenas(r) : { nuevas: 0, porGali: 0, promedio: 0 };
     // Calificación de la sede: la de sus fichas, según cuántas calificaciones tiene cada una.
     const cierres = ids.map((id) => calificacionAl(fotos.filter((f) => f.ficha === id), fin)).filter(Boolean);
     const total = cierres.reduce((t, c) => t + c.total, 0);
     return {
       nombre,
+      nuevas: suma.nuevas,
       porGali: suma.porGali,
       promedioGali: suma.porGali ? suma.promedio : null,
       calificacion: total ? cierres.reduce((t, c) => t + c.calificacion * c.total, 0) / total : null,

@@ -1,9 +1,9 @@
 // Hoja de reviews del reporte para clientes, solo para las compañías con ficha
-// de Google activa: la calificación general en Google y, de las
-// reviews, solo lo que llegó por Galilei (clic de la tarjeta o del juego):
-// cuántas y su promedio, sus estrellas y los tres empleados que más reviews de 5
-// estrellas consiguieron. Nada que deje ver cuáles no fueron por Galilei. Mismas
-// piezas que la hoja de conocimiento.
+// de Google activa: la calificación general en Google; las reviews que llegaron
+// por Galilei (clic de la tarjeta o del juego), cuántas y su promedio, con el
+// total de reviews nuevas del periodo al pie (algunos restaurantes lo usan de
+// métrica); sus estrellas y los tres empleados que más reviews de 5 estrellas
+// consiguieron. Mismas piezas que la hoja de conocimiento.
 
 import { CARRUSEL, pintarFondo, cabecera, cajaOscura } from './carrusel.js';
 import { redondeado, recortar } from './lienzo.js';
@@ -16,7 +16,7 @@ const ALTO = CARRUSEL.alto;
 
 const R = {
   calificacion: { h: 250, cifra: 96, estrella: 30 },
-  galilei: { h: 196, cifra: 96, estrella: 26 },
+  galilei: { h: 250, cifra: 96, estrella: 26 },
   barras: { fila: 50, alto: 18, estrella: 12, etiqueta: 70, dato: 150, fuente: 24 },
 };
 
@@ -116,7 +116,8 @@ function tarjetaCalificacion(ctx, c, d) {
 }
 
 // Cuántas reviews llegaron por Galilei en el periodo (creadas en esos días) y,
-// a la derecha, su promedio de estrellas.
+// a la derecha, su promedio de estrellas. Al pie, todas las reviews nuevas del
+// periodo (por Galilei o no) y qué parte llegó por Galilei.
 function tarjetaGalilei(ctx, c, d) {
   const t = R.galilei;
   tarjeta(ctx, c);
@@ -151,6 +152,14 @@ function tarjetaGalilei(ctx, c, d) {
     ctx.fillText(valor, xEstrella - t.estrella - 12, base);
   }
 
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  ctx.fillStyle = ESTILO.neutral07;
+  ctx.font = fG(500, 26);
+  const pie = d.nuevas
+    ? `De ${entero(d.nuevas)} ${d.nuevas === 1 ? 'reseña nueva' : 'reseñas nuevas'} en total · ${porcentaje(d.porGali, d.nuevas)} por Galilei`
+    : 'Sin reseñas nuevas en el periodo';
+  ctx.fillText(recortar(ctx, pie, c.w - H.pad * 2), x, c.y + c.h - 30);
 }
 
 // Las reviews por Galilei del periodo por estrellas, de 5 a 1: barras
@@ -251,7 +260,7 @@ function cajaTop(ctx, c, top, huboReviews) {
 // con lo mismo que la tarjeta de Galilei de la hoja de reseñas —cuántas llegaron
 // por Galilei y su promedio—, una barra con qué parte de las reseñas por
 // Galilei de la compañía consiguió y, al pie, la calificación de esa ficha en
-// Google. Las tarjetas se reparten el alto hasta el pie, pero sin pasar de
+// Google, con el total de reseñas nuevas de la sede. Las tarjetas se reparten el alto hasta el pie, pero sin pasar de
 // `S.max`: con dos o tres sedes, estiradas hasta el pie quedaban enormes, y es
 // mejor dejar algo de aire abajo. Con muchas se achican, y la letra con ellas.
 const S = { alto: 260, max: 340, maxEscala: 1.1, cifra: 96, palabra: 44, promedio: 72, estrella: 26, pie: 26, barra: 14 };
@@ -299,15 +308,17 @@ function tarjetaSede(ctx, c, s, totalGali, k) {
   ctx.restore();
   etiqueta(ctx, nombre, x, arriba, k);
 
-  // Al pie: la calificación de la ficha en Google.
+  // Al pie: las reseñas nuevas de la sede (por Galilei o no) y su calificación
+  // en Google.
   const pie = c.y + c.h - 28 * k;
   ctx.textBaseline = 'bottom';
   ctx.textAlign = 'left';
   ctx.font = fG(500, S.pie * k);
   ctx.fillStyle = ESTILO.neutral07;
+  const total = `${entero(s.nuevas)} ${s.nuevas === 1 ? 'nueva' : 'nuevas'} en total`;
   const google = s.calificacion == null
-    ? 'Sin calificación en Google'
-    : `${decimal(s.calificacion)} ★ en Google · ${entero(s.totalGoogle)} calificaciones`;
+    ? `${total} · Sin calificación en Google`
+    : `${total} · ${decimal(s.calificacion)} ★ en Google · ${entero(s.totalGoogle)} calificaciones`;
   ctx.fillText(recortar(ctx, google, c.w - H.pad * 2), x, pie);
 
   // Entre el nombre y el pie, centrados: la cifra y, debajo, la barra con su
