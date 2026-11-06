@@ -273,8 +273,7 @@ function cajaTop(ctx, c, top, huboReviews) {
 // más (cada ficha es una sede): una tarjeta por sede, de más a menos reseñas,
 // con lo mismo que la tarjeta de Galilei de la hoja de reseñas —cuántas llegaron
 // por Galilei y su promedio—, una barra con qué parte de las reseñas por
-// Galilei de la compañía consiguió y, al pie, la calificación de esa ficha en
-// Google, con el total de reseñas nuevas de la sede. Las tarjetas se reparten el alto hasta el pie, pero sin pasar de
+// Galilei de la compañía consiguió y, al pie, el total de reseñas nuevas de la sede. Las tarjetas se reparten el alto hasta el pie, pero sin pasar de
 // `S.max`: con dos o tres sedes, estiradas hasta el pie quedaban enormes, y es
 // mejor dejar algo de aire abajo. Con muchas se achican, y la letra con ellas.
 const S = { alto: 260, max: 340, maxEscala: 1.1, cifra: 96, palabra: 44, promedio: 72, estrella: 26, pie: 26, barra: 14 };
@@ -322,18 +321,13 @@ function tarjetaSede(ctx, c, s, totalGali, k) {
   ctx.restore();
   etiqueta(ctx, nombre, x, arriba, k);
 
-  // Al pie: las reseñas nuevas de la sede (por Galilei o no) y su calificación
-  // en Google.
+  // Al pie: las reseñas nuevas de la sede (por Galilei o no).
   const pie = c.y + c.h - 28 * k;
   ctx.textBaseline = 'bottom';
   ctx.textAlign = 'left';
   ctx.font = fG(500, S.pie * k);
   ctx.fillStyle = ESTILO.neutral07;
-  const total = `Total de reseñas nuevas: ${entero(s.nuevas)}`;
-  const google = s.calificacion == null
-    ? `${total} · Sin calificación en Google`
-    : `${total} · ${decimal(s.calificacion)} ★ en Google · ${entero(s.totalGoogle)} calificaciones`;
-  ctx.fillText(recortar(ctx, google, c.w - H.pad * 2), x, pie);
+  ctx.fillText(`Total de reseñas nuevas: ${entero(s.nuevas)}`, x, pie);
 
   // Entre el nombre y el pie, centrados: la cifra y, debajo, la barra con su
   // parte (si cabe).

@@ -435,7 +435,7 @@ solo reviews y lotería.
    **Reseñas por sede** (`dibujarResenasPorSede`, misma hoja de código, con «Gracias a Galilei»
    bajo el título), solo para las compañías con dos sedes o más: una tarjeta por sede con sus
    reseñas por Galilei, su promedio, qué parte del total de la compañía consiguió y, al pie, sus
-   reseñas nuevas en total y su calificación en Google. La sede de cada ficha de Google es la **Location** que apunta a ella
+   reseñas nuevas en total. La sede de cada ficha de Google es la **Location** que apunta a ella
    (`location.google_location_id`); las fichas de una misma Location se suman. Si una ficha no
    apunta a ninguna, se usa su título recortado (`sedeDeFicha`: «Restaurante Mekong Laureles» →
    «Laureles»). Con una sola sede no sale.
