@@ -16,7 +16,7 @@ const ALTO = CARRUSEL.alto;
 
 const R = {
   calificacion: { h: 250, cifra: 96, estrella: 30 },
-  galilei: { h: 250, cifra: 96, estrella: 26 },
+  galilei: { h: 266, cifra: 96, estrella: 26 },
   barras: { fila: 50, alto: 18, estrella: 12, etiqueta: 70, dato: 150, fuente: 24 },
 };
 
@@ -139,7 +139,8 @@ function tarjetaGalilei(ctx, c, d) {
   const anchoCifra = ctx.measureText(cifra).width;
   ctx.fillStyle = ESTILO.neutral07;
   ctx.font = fT(600, 44);
-  ctx.fillText(d.porGali === 1 ? 'reseña' : 'reseñas', x + anchoCifra + 16, base);
+  // «por Galilei» junto a la cifra, para que no se confunda con el total del pie.
+  ctx.fillText('por Galilei', x + anchoCifra + 16, base);
 
   // Promedio de estrellas de esas reviews, alineado con la cifra.
   if (d.promedioGali != null) {
@@ -152,14 +153,27 @@ function tarjetaGalilei(ctx, c, d) {
     ctx.fillText(valor, xEstrella - t.estrella - 12, base);
   }
 
-  ctx.textAlign = 'left';
+  // Al pie, separado por una línea: el total de reseñas nuevas (por Galilei y
+  // por otros medios), con su cifra en blanco, y a la derecha qué parte fue
+  // por Galilei.
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+  ctx.fillRect(x, c.y + c.h - 76, c.w - H.pad * 2, 2);
+  const yPie = c.y + c.h - 30;
   ctx.textBaseline = 'bottom';
+  ctx.textAlign = 'left';
   ctx.fillStyle = ESTILO.neutral07;
   ctx.font = fG(500, 26);
-  const pie = d.nuevas
-    ? `De ${entero(d.nuevas)} ${d.nuevas === 1 ? 'reseña nueva' : 'reseñas nuevas'} en total · ${porcentaje(d.porGali, d.nuevas)} por Galilei`
-    : 'Sin reseñas nuevas en el periodo';
-  ctx.fillText(recortar(ctx, pie, c.w - H.pad * 2), x, c.y + c.h - 30);
+  const rotulo = 'Total de reseñas nuevas (Galilei y otras): ';
+  ctx.fillText(rotulo, x, yPie);
+  const anchoRotulo = ctx.measureText(rotulo).width;
+  ctx.fillStyle = ESTILO.blanco;
+  ctx.font = fG(700, 26);
+  ctx.fillText(entero(d.nuevas), x + anchoRotulo + 4, yPie);
+  if (d.nuevas) {
+    ctx.textAlign = 'right';
+    ctx.fillStyle = ESTILO.g500;
+    ctx.fillText(`${porcentaje(d.porGali, d.nuevas)} por Galilei`, derecha, yPie);
+  }
 }
 
 // Las reviews por Galilei del periodo por estrellas, de 5 a 1: barras
@@ -315,7 +329,7 @@ function tarjetaSede(ctx, c, s, totalGali, k) {
   ctx.textAlign = 'left';
   ctx.font = fG(500, S.pie * k);
   ctx.fillStyle = ESTILO.neutral07;
-  const total = `${entero(s.nuevas)} ${s.nuevas === 1 ? 'nueva' : 'nuevas'} en total`;
+  const total = `Total de reseñas nuevas: ${entero(s.nuevas)}`;
   const google = s.calificacion == null
     ? `${total} · Sin calificación en Google`
     : `${total} · ${decimal(s.calificacion)} ★ en Google · ${entero(s.totalGoogle)} calificaciones`;
@@ -338,7 +352,7 @@ function tarjetaSede(ctx, c, s, totalGali, k) {
   const anchoCifra = ctx.measureText(cifra).width;
   ctx.fillStyle = ESTILO.neutral07;
   ctx.font = fT(600, S.palabra * k);
-  ctx.fillText(s.porGali === 1 ? 'reseña' : 'reseñas', x + anchoCifra + 16 * k, base);
+  ctx.fillText('por Galilei', x + anchoCifra + 16 * k, base);
 
   // Promedio de estrellas de las reseñas por Galilei de la sede.
   if (s.promedioGali != null) {
