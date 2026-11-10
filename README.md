@@ -482,13 +482,13 @@ premios y chocaba con el título.
 
 Salen de **cuatro queries** (`public/lib/consultas.js`), que la página muestra con botón «Copiar».
 No llevan parámetros —traen todas las compañías desde el primer día del mes anterior—, así que se
-pegan siempre igual en Analytics Chat. Miden unos 1.870, 1.550, 1.880 y 1.490 caracteres con la
+pegan siempre igual en Analytics Chat. Miden unos 1.900, 1.750, 1.880 y 1.490 caracteres con la
 instrucción delante: el chat corta el mensaje hacia los 1.900.
 
 1. **Conocimiento**, ya agregada en SQL por compañía y periodo (cada semana de lunes a domingo y
    cada mes): un `resumen` (jugadores con partidas, juegos, segundos, preguntas respondidas), el Top
    3 de sedes (`loc`; la sede de cada persona es la de su empleado en `employee_location`, o la
-   de su team si no tiene) por porcentaje de jugadores con partidas, y las preguntas respondidas cada día (`dia`), para el gráfico. Va
+   de su team si no tiene; sin los admins de Galilei, como en la query 2) por porcentaje de jugadores con partidas, y las preguntas respondidas cada día (`dia`), para el gráfico. Va
    agregada porque el chat devuelve como mucho **10.000 filas**: con una fila por jugador y día
    no alcanzaba ni para un mes. Así salen unos 400.
 2. **Compañías y premios**: jugadores activos y experiencias de cada compañía, y una fila por

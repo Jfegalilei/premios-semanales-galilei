@@ -21,7 +21,9 @@
 // varias sedes (Maximo: el team Medellín tiene gente de Cartagena).
 //
 // Solo cuentan los jugadores activos hoy (`player.active`), igual que el total
-// de la query 2: si no, quien jugó y luego fue desactivado daba «8 de 7».
+// de la query 2: si no, quien jugó y luego fue desactivado daba «8 de 7». Y,
+// como en la query 2, no cuentan los admins de Galilei (`admins.js`) fuera de
+// Galilei. El total de la sede los incluía y daba «7 de 12» con 11 jugadores.
 //
 // Query 2:
 //   compania n1 jugadores activos en total, t1 experiencias (" | ")
@@ -76,7 +78,8 @@
 // Va delante de cada query al copiarla. Sin ella el chat a veces corre la query
 // y después otra «resumida» por su cuenta, y el Export baja esa (probado: una de
 // tres veces sin la instrucción; cinco de cinco bien con ella). Suma unos 170
-// caracteres: la query 1 queda en ~1.800, por debajo del corte de ~1.900.
+// caracteres: la query 1 queda en 1.900 justos (antes de filtrar a los admins iba
+// en 1.923 y pasaba bien), así que no hay margen para alargarla.
 export const INSTRUCCION = 'Ejecuta este SQL exactamente como está, una sola vez, sin LIMIT ni cambios. '
   + 'No corras otras consultas ni hagas resúmenes: responde solo con el número de filas.\n\n';
 
@@ -85,16 +88,15 @@ export const CONSULTAS = [
     id: 'conocimiento',
     titulo: 'Query 1 · Conocimiento',
     descripcion: 'Jugadores, horas, preguntas por día, Top 3 de sedes y clasificados a la GaliLotería.',
-    sql: `WITH k AS(SELECT DATE_TRUNC('month',CURRENT_DATE-INTERVAL '1 month')+INTERVAL '5 hours' d),
-pc AS(SELECT p.player_id i,c.name co,COALESCE((SELECT location_id FROM employee_location WHERE employee_id=COALESCE(p.employee_id,a.employee_id) ORDER BY created_at DESC LIMIT 1),t.location_id) l FROM player p JOIN actor a ON a.actor_id=p.actor_id JOIN team t ON t.team_id=p.team_id JOIN company c ON c.company_id=t.company_id WHERE p.active AND NOT a.is_stealth),
-g AS(SELECT game_id gi,player_id pi,experience_id x,time_played_in_secs s,(SELECT COUNT(*) FROM game_question WHERE game_id=game.game_id) y,score z,(started_at-INTERVAL '5 hours')::date f FROM game WHERE NOT is_dummy AND started_at>=(SELECT d FROM k)),
-gp AS(SELECT g.*,co,l,v.per,v.ini FROM g JOIN pc ON i=pi,LATERAL(VALUES('semana',DATE_TRUNC('week',f)::date),('mes',DATE_TRUNC('month',f)::date))v(per,ini)),
+    sql: `WITH pc AS(SELECT p.player_id i,c.name co,COALESCE((SELECT location_id FROM employee_location WHERE employee_id=COALESCE(p.employee_id,a.employee_id) ORDER BY created_at DESC LIMIT 1),t.location_id) l FROM player p JOIN actor a ON a.actor_id=p.actor_id JOIN team t ON t.team_id=p.team_id JOIN company c ON c.company_id=t.company_id WHERE p.active AND NOT a.is_stealth AND(c.name~'^Galilei'OR p.player_id::text!~'^(1cac9040|75e2e926)')),
+g AS(SELECT player_id pi,time_played_in_secs s,(SELECT COUNT(*) FROM game_question WHERE game_id=game.game_id) y,score z,(started_at-INTERVAL '5 hours')::date f FROM game WHERE NOT is_dummy AND started_at>=DATE_TRUNC('month',CURRENT_DATE-INTERVAL '1 month')+INTERVAL '5 hours'),
+gp AS(SELECT g.*,co,l,per,ini FROM g JOIN pc ON i=pi,LATERAL(VALUES('semana',DATE_TRUNC('week',f)::date),('mes',DATE_TRUNC('month',f)::date))v(per,ini)),
 j AS(SELECT co,per,ini,pi,l,COUNT(*) n,SUM(s) s,SUM(y) y,MAX(z) z FROM gp GROUP BY 1,2,3,4,5),
 lc AS(SELECT l,COUNT(*) t FROM pc GROUP BY 1)
-SELECT 'resumen' tipo,co compania,per periodo,ini fecha,NULL::uuid player_id,COUNT(*)FILTER(WHERE per='semana' OR n>=5) n1,SUM(n) n2,SUM(s) n3,SUM(y) n4,NULL t1,NULL t2 FROM j GROUP BY 2,3,4
-UNION ALL SELECT 'loc',co,per,ini,NULL,a,t,NULL,NULL,o.name,NULL FROM(SELECT co,per,ini,j.l,COUNT(*) a,t,ROW_NUMBER()OVER(PARTITION BY co,per,ini ORDER BY COUNT(*)::float/t DESC,COUNT(*) DESC)r FROM j JOIN lc ON lc.l=j.l WHERE per='semana' OR n>=5 GROUP BY 1,2,3,4,6)x JOIN location o ON o.location_id=x.l WHERE r<=3
-UNION ALL SELECT 'lot',co,per,ini,NULL,COUNT(*)FILTER(WHERE n>=15 AND z>=30),NULL,NULL,NULL,NULL,NULL FROM j WHERE per='mes' GROUP BY 2,3,4
-UNION ALL SELECT 'dia',co,NULL,f,NULL,SUM(y),NULL,NULL,NULL,NULL,NULL FROM g JOIN pc ON i=pi GROUP BY 2,4`,
+SELECT 'resumen' tipo,co compania,per periodo,ini fecha,NULL::uuid player_id,COUNT(*)FILTER(WHERE per='semana'OR n>=5) n1,SUM(n) n2,SUM(s) n3,SUM(y) n4,NULL t1 FROM j GROUP BY 2,3,4
+UNION ALL SELECT 'loc',co,per,ini,NULL,a,t,NULL,NULL,o.name FROM(SELECT co,per,ini,j.l,COUNT(*) a,t,ROW_NUMBER()OVER(PARTITION BY co,per,ini ORDER BY COUNT(*)::float/t DESC,COUNT(*) DESC)r FROM j JOIN lc ON lc.l=j.l WHERE per='semana'OR n>=5 GROUP BY 1,2,3,4,6)x JOIN location o ON o.location_id=x.l WHERE r<=3
+UNION ALL SELECT 'lot',co,per,ini,NULL,COUNT(*)FILTER(WHERE n>=15 AND z>=30),NULL,NULL,NULL,NULL FROM j WHERE per='mes' GROUP BY 2,3,4
+UNION ALL SELECT 'dia',co,NULL,f,NULL,SUM(y),NULL,NULL,NULL,NULL FROM g JOIN pc ON i=pi GROUP BY 2,4`,
   },
   {
     id: 'premios',
