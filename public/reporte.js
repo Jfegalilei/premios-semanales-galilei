@@ -259,7 +259,11 @@ function alCambiarGuardados(documentos) {
   estado.subidas = subidas;
   if (!Object.keys(tablas).length) return;
   estado.datos = datosVacios();
-  for (const tabla of Object.values(tablas)) Object.assign(estado.datos, interpretarTabla(tabla));
+  // Las filas de «Todo el tiempo» no van en Firestore, pero una versión vieja
+  // de la página las guardó como meses (13 nov 2026, La Causa): no cuentan.
+  for (const tabla of Object.values(tablas)) {
+    Object.assign(estado.datos, interpretarTabla({ ...tabla, registros: tabla.registros.filter((r) => r.periodo !== 'total') }));
+  }
   estado.ejemplo = false;
   alCambiarDatos();
 }
