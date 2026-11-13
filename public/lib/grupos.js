@@ -72,10 +72,10 @@ export function armarGrupo(grupo, catalogo, imagenes) {
     ? formatearMonto(porMontos.reduce((s, e) => s + e.monto, 0), unidad)
     : null;
 
-  // Nequi lleva además el desglose en la propia tarjeta: cada monto que se
-  // entregó y cuántas veces, del mayor al menor. Cuenta ENTREGAS, igual que el
-  // total.
-  if (familia === 'nequi' && porMontos.length) {
+  // Nequi y Transferencia (la plata de antes de Nequi) llevan además el
+  // desglose en la propia tarjeta: cada monto que se entregó y cuántas veces,
+  // del mayor al menor. Cuenta ENTREGAS, igual que el total.
+  if ((familia === 'nequi' || familia === 'transferencia') && porMontos.length) {
     const veces = new Map();
     for (const e of porMontos) veces.set(e.monto, (veces.get(e.monto) || 0) + 1);
     datos.valores = [...veces.entries()]

@@ -46,6 +46,20 @@ const REGLAS = [
     monto: (m) => aNumero(m[1]),
   },
   {
+    // Plata pagada a mano antes de Nequi: un premio que es solo el monto
+    // ("$10,000", "$5.000", "$100.000"). Va junto como Transferencia, con su
+    // desglose de montos como el de Nequi (`grupos.js`).
+    prueba: /^\$\s*([\d.,]+)$/,
+    familia: () => ({
+      id: 'transferencia',
+      singular: 'Transferencia',
+      plural: 'Transferencias',
+      desglose: 'por-monto',
+      unidadMonto: 'pesos',
+    }),
+    monto: (m) => aNumero(m[1]),
+  },
+  {
     // "Bono Adidas $300000.00", "Bono Crepes & Waffles $60000.00", "Bono Starbucks $20.000"
     prueba: /^Bono\s+(.+?)\s*\$?\s*([\d.,]+)$/i,
     familia: (m) => ({
