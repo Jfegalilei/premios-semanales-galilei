@@ -95,6 +95,8 @@ export function interpretarTabla({ registros }) {
         juegos: aNumero(r.n2),
         segundos: aNumero(r.n3),
         preguntas: aNumero(r.n4),
+        // Solo en «Todo el tiempo»: las partidas que pide un activo (5 por mes).
+        umbral: aNumero(r.t1),
       });
     } else if (r.tipo === 'loc') {
       if (fueraDelReporte(r.t1)) continue;
@@ -442,8 +444,9 @@ export function conocimiento(datos, compania, periodo) {
     // partidas o más (lo filtra la query 1); en la semana, quien jugó al menos una.
     activos: r ? r.activos : 0,
     mensual: periodo.tipo !== 'semana',
-    // En todo el tiempo: 5 partidas o más en al menos un mes.
+    // En todo el tiempo: 5 partidas por mes del periodo (`umbral`).
     total: periodo.tipo === 'total',
+    umbral: r ? r.umbral : 0,
     totalJugadores: info ? info.totalJugadores : null,
     experiencias: info ? info.experiencias : [],
     horas: r ? r.segundos / 3600 : 0,

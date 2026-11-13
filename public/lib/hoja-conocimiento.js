@@ -179,7 +179,7 @@ function tarjetaActivos(ctx, c, d) {
   ctx.fillStyle = ESTILO.neutral07;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
-  ctx.fillText(d.total ? '5 partidas o más en un mes' : d.mensual ? 'Jugaron 5 partidas o más' : 'Jugaron al menos una vez',c.x + c.w - H.pad, c.y + 34 + altoEtiqueta() / 2 - 2);
+  ctx.fillText(d.total ? (d.umbral ? `${entero(d.umbral)} partidas o más (5 por mes)` : '5 partidas o más en un mes') : d.mensual ? 'Jugaron 5 partidas o más' : 'Jugaron al menos una vez',c.x + c.w - H.pad, c.y + 34 + altoEtiqueta() / 2 - 2);
   ctx.restore();
 
   ctx.textBaseline = 'alphabetic';

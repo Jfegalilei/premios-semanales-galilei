@@ -146,8 +146,9 @@ SELECT 'auteco' tipo,co compania,'mes' periodo,mes fecha,NULL::uuid player_id,CO
 //     la página las reconoce, no las guarda en Firestore (pisarían los meses de
 //     todas las compañías) y las usa solo en el periodo «Todo el tiempo»;
 //   - sin semanas ni meses ni GaliLotería: un solo agregado. Activos (en el
-//     resumen y en el Top 3 de sedes): quien jugó 5 partidas o más en al menos
-//     un mes, como el activo del reporte mensual (`m5`).
+//     resumen y en el Top 3 de sedes): el activo del mes (5 partidas o más)
+//     generalizado, 5 partidas por cada mes del periodo (`um`, de la primera
+//     partida a la última: 7 meses, 35 partidas). El resumen trae ese umbral en `t1`.
 // `dia` va de la primera partida a la última: de ahí sale el arranque del periodo.
 // Las fotos de la calificación, solo los 90 días antes del cierre.
 export function consultasTodoElTiempo(compania, hasta) {
@@ -163,10 +164,10 @@ export function consultasTodoElTiempo(compania, hasta) {
       sql: `WITH pc AS(SELECT p.player_id i,c.name co,${sede} l ${jugadores} WHERE c.name=${co} AND p.active AND NOT a.is_stealth AND p.player_id::text!~'^(1cac9040|75e2e926)'),
 g AS(SELECT co,l,player_id pi,time_played_in_secs s,(SELECT COUNT(*) FROM game_question WHERE game_id=game.game_id) y,(started_at-INTERVAL '5 hours')::date f FROM game JOIN pc ON i=player_id WHERE NOT is_dummy AND started_at<${fin}),
 j AS(SELECT co,pi,l,COUNT(*)n,SUM(s)s,SUM(y)y FROM g GROUP BY 1,2,3),
-m5 AS(SELECT DISTINCT pi FROM g GROUP BY pi,DATE_TRUNC('month',f) HAVING COUNT(*)>=5),
+um AS(SELECT 5*((EXTRACT(YEAR FROM MAX(f))-EXTRACT(YEAR FROM MIN(f)))*12+EXTRACT(MONTH FROM MAX(f))-EXTRACT(MONTH FROM MIN(f))+1)::int u FROM g),
 lc AS(SELECT co,l,COUNT(*)t FROM pc GROUP BY 1,2)
-SELECT 'resumen' tipo,co compania,'total' periodo,NULL::date fecha,NULL::uuid player_id,COUNT(*)FILTER(WHERE pi IN(SELECT pi FROM m5)) n1,SUM(n) n2,SUM(s) n3,SUM(y) n4,NULL t1 FROM j GROUP BY 2
-UNION ALL SELECT 'loc',co,'total',NULL,NULL,a,t,NULL,NULL,o.name FROM(SELECT co,j.l,COUNT(*)a,t,ROW_NUMBER()OVER(PARTITION BY co ORDER BY COUNT(*)::float/t DESC,COUNT(*) DESC)r FROM j JOIN lc USING(co,l) WHERE pi IN(SELECT pi FROM m5) GROUP BY 1,2,4)x JOIN location o ON o.location_id=x.l WHERE r<=3
+SELECT 'resumen' tipo,co compania,'total' periodo,NULL::date fecha,NULL::uuid player_id,COUNT(*)FILTER(WHERE n>=u) n1,SUM(n) n2,SUM(s) n3,SUM(y) n4,u::text t1 FROM j,um GROUP BY 2,u
+UNION ALL SELECT 'loc',co,'total',NULL,NULL,a,t,NULL,NULL,o.name FROM(SELECT co,j.l,COUNT(*)a,t,ROW_NUMBER()OVER(PARTITION BY co ORDER BY COUNT(*)::float/t DESC,COUNT(*) DESC)r FROM j JOIN lc USING(co,l),um WHERE n>=u GROUP BY 1,2,4)x JOIN location o ON o.location_id=x.l WHERE r<=3
 UNION ALL SELECT 'dia',co,'total',f,NULL,SUM(y),NULL,NULL,NULL,NULL FROM g GROUP BY 2,4`,
     },
     {
