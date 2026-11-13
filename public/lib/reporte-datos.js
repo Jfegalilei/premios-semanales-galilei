@@ -442,6 +442,8 @@ export function conocimiento(datos, compania, periodo) {
     // partidas o más (lo filtra la query 1); en la semana, quien jugó al menos una.
     activos: r ? r.activos : 0,
     mensual: periodo.tipo !== 'semana',
+    // En todo el tiempo: 5 partidas o más en al menos un mes.
+    total: periodo.tipo === 'total',
     totalJugadores: info ? info.totalJugadores : null,
     experiencias: info ? info.experiencias : [],
     horas: r ? r.segundos / 3600 : 0,

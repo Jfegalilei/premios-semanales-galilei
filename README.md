@@ -510,7 +510,7 @@ instrucción delante: el chat corta el mensaje hacia los 1.900.
 **Todo el tiempo** (reporte de cierre de un cliente que se fue): `consultasTodoElTiempo(compania,
 hasta)` en `public/lib/consultas.js` arma las queries 1 a 3 de una sola compañía, de todo lo que
 hay en la base hasta `hasta`, en un único periodo (`periodo = 'total'` en todas las filas; sin
-semanas, meses ni GaliLotería; activos, quien jugó 5 partidas o más). Al soltar esos CSV la
+semanas, meses ni GaliLotería; activos, quien jugó 5 partidas o más en al menos un mes). Al soltar esos CSV la
 página **no los guarda en Firestore** (pisarían los meses de todas las compañías): quedan solo
 en la pestaña, y el selector suma «Todo el tiempo», de la primera partida o premio al final del
 mes de la última. Ese reporte sale sin loterías ni metas, con el gráfico de preguntas por mes y
