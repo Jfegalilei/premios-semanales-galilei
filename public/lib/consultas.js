@@ -138,6 +138,57 @@ SELECT 'auteco' tipo,co compania,'mes' periodo,mes fecha,NULL::uuid player_id,CO
   },
 ];
 
+// Las queries 1 a 3 de una sola compañía, de todo lo que hay en la base hasta el
+// día anterior a `hasta` ('AAAA-MM-DD', sin incluir), en un único periodo
+// `total` (para el reporte final de un cliente que se fue). Mismas columnas y
+// tipos de fila que las de arriba, con dos cambios:
+//   - todas las filas llevan `periodo = 'total'` (la 2 suma esa columna): así
+//     la página las reconoce, no las guarda en Firestore (pisarían los meses de
+//     todas las compañías) y las usa solo en el periodo «Todo el tiempo»;
+//   - sin semanas ni meses ni GaliLotería: un solo agregado. Activos, como en
+//     el mes: quien jugó 5 partidas o más (en todo el tiempo).
+// `dia` va de la primera partida a la última: de ahí sale el arranque del periodo.
+// Las fotos de la calificación, solo los 90 días antes del cierre.
+export function consultasTodoElTiempo(compania, hasta) {
+  const co = `'${compania.replace(/'/g, "''")}'`;
+  const fin = `'${hasta} 05:00'`;
+  const fotosDesde = new Date(Date.parse(hasta) - 90 * 864e5).toISOString().slice(0, 10);
+  const sede = 'COALESCE((SELECT location_id FROM employee_location WHERE employee_id=COALESCE(p.employee_id,a.employee_id) ORDER BY created_at DESC LIMIT 1),t.location_id)';
+  const jugadores = 'FROM player p JOIN actor a ON a.actor_id=p.actor_id JOIN team t ON t.team_id=p.team_id JOIN company c ON c.company_id=t.company_id';
+  return [
+    {
+      id: 'conocimiento',
+      titulo: 'Query 1 · Conocimiento (todo el tiempo)',
+      sql: `WITH pc AS(SELECT p.player_id i,c.name co,${sede} l ${jugadores} WHERE c.name=${co} AND p.active AND NOT a.is_stealth AND p.player_id::text!~'^(1cac9040|75e2e926)'),
+g AS(SELECT co,l,player_id pi,time_played_in_secs s,(SELECT COUNT(*) FROM game_question WHERE game_id=game.game_id) y,(started_at-INTERVAL '5 hours')::date f FROM game JOIN pc ON i=player_id WHERE NOT is_dummy AND started_at<${fin}),
+j AS(SELECT co,pi,l,COUNT(*)n,SUM(s)s,SUM(y)y FROM g GROUP BY 1,2,3),
+lc AS(SELECT co,l,COUNT(*)t FROM pc GROUP BY 1,2)
+SELECT 'resumen' tipo,co compania,'total' periodo,NULL::date fecha,NULL::uuid player_id,COUNT(*)FILTER(WHERE n>=5) n1,SUM(n) n2,SUM(s) n3,SUM(y) n4,NULL t1 FROM j GROUP BY 2
+UNION ALL SELECT 'loc',co,'total',NULL,NULL,a,t,NULL,NULL,o.name FROM(SELECT co,j.l,COUNT(*)a,t,ROW_NUMBER()OVER(PARTITION BY co ORDER BY COUNT(*)::float/t DESC,COUNT(*) DESC)r FROM j JOIN lc USING(co,l) WHERE n>=5 GROUP BY 1,2,4)x JOIN location o ON o.location_id=x.l WHERE r<=3
+UNION ALL SELECT 'dia',co,'total',f,NULL,SUM(y),NULL,NULL,NULL,NULL FROM g GROUP BY 2,4`,
+    },
+    {
+      id: 'premios',
+      titulo: 'Query 2 · Compañías y premios (todo el tiempo)',
+      sql: `WITH pc AS(SELECT p.player_id i,c.name co,c.company_id ci,p.active ac,a.is_stealth st,o.name se,t.prize_level nv ${jugadores} LEFT JOIN location o ON o.location_id=${sede} WHERE c.name=${co} AND p.player_id NOT IN('1cac9040-65ce-471b-a1b4-449897e60755','75e2e926-5f02-4418-a9b4-c9f49a63257c'))
+SELECT 'compania' tipo,c.name compania,'total' periodo,NULL::date fecha,NULL::uuid player_id,(SELECT COUNT(*) FROM pc WHERE ci=c.company_id AND ac AND NOT st) n1,(SELECT string_agg(DISTINCT e.name->>'es',' | ') FROM team_experience te JOIN experience e ON e.experience_id=te.experience_id JOIN team t ON t.team_id=te.team_id WHERE t.company_id=c.company_id AND e.active) t1,NULL t2,NULL t3,NULL n2,NULL t4,NULL::numeric n3 FROM company c WHERE c.name=${co}
+UNION ALL SELECT 'premio',co,'total',(r.redeemed_at-INTERVAL '5 hours')::date,i,cp.quantity,COALESCE(pr.name->>'es',pr.internal_name),pr.prize_type,CASE WHEN pr.prize_type='NEQUI' THEN rn.status ELSE r.status END,nv,se,COALESCE(NULLIF(rn.amount_cop,0),r.cost) FROM reward r JOIN catalog_prize cp ON cp.catalog_prize_id=r.catalog_prize_id JOIN prize pr ON pr.prize_id=cp.prize_id JOIN pc ON i=r.player_id LEFT JOIN reward_nequi_gift_code rn ON rn.reward_id=r.reward_id WHERE r.redeemed_at<${fin}`,
+    },
+    {
+      id: 'reviews',
+      titulo: 'Query 3 · Reseñas de Google (todo el tiempo)',
+      sql: `WITH gl AS(SELECT g.google_location_id gi,c.name co,COALESCE((SELECT name FROM location WHERE google_location_id=g.google_location_id LIMIT 1),g.title) ti FROM google_location g JOIN company c USING(company_id) WHERE g.is_enabled AND c.name=${co}),
+gc AS(SELECT DISTINCT ON(google_review_id) google_review_id ri,employee_id em FROM review_click ORDER BY 1,2),
+rp AS(SELECT review_id ri,co,gi,array_position(ARRAY['ONE','TWO','THREE','FOUR','FIVE'],rating) e,em,gc.ri IS NOT NULL ga FROM google_review JOIN gl ON gi=google_location_id LEFT JOIN gc ON gc.ri=review_id WHERE create_time<${fin})
+SELECT 'ficha' tipo,co compania,'total' periodo,NULL::date fecha,NULL::uuid player_id,NULL n1,NULL n2,NULL n3,NULL n4,gi t1,ti t2,NULL::uuid employee_id FROM gl
+UNION ALL SELECT 'rev',co,'total',NULL,NULL,COUNT(*),COUNT(*)FILTER(WHERE ga),AVG(e)FILTER(WHERE ga),NULL,gi,NULL,NULL FROM rp GROUP BY co,gi
+UNION ALL SELECT 'estrellas',co,'total',NULL,NULL,e,COUNT(*),NULL,NULL,NULL,NULL,NULL FROM rp WHERE ga GROUP BY co,e
+UNION ALL SELECT 'emp',co,'total',NULL,(SELECT p.player_id FROM player p JOIN actor a USING(actor_id) WHERE em IN(p.employee_id,a.employee_id) LIMIT 1),COUNT(*),NULL,NULL,NULL,NULL,NULL,em FROM rp WHERE ga AND e=5 AND em IS NOT NULL GROUP BY co,em
+UNION ALL SELECT 'foto',co,'total',snapshot_date,NULL,average_rating,total_rating_count,NULL,NULL,gi,NULL,NULL FROM location_rating_snapshot JOIN gl ON gi=google_location_id WHERE snapshot_date>='${fotosDesde}' AND snapshot_date<'${hasta}'`,
+    },
+  ];
+}
+
 // Qué archivo es cada CSV, por sus columnas (ya normalizadas por `normalizarClave`).
 // Además de las dos queries se acepta el export de la pieza semanal, para premios.
 export function tipoDeArchivo(columnas) {

@@ -234,7 +234,10 @@ export function componerReporte(r, recursos, lienzos) {
       kicker: r.cliente,
       logoCliente: r.logoCliente,
       logo: recursos.logo,
-      etiqueta: `${diaMes(r.periodo.inicio)} - ${diaMes(r.periodo.fin)}`,
+      // «Todo el tiempo» puede pasar de un año a otro: con el año.
+      etiqueta: r.periodo.tipo === 'total'
+        ? `${diaMes(r.periodo.inicio)} ${r.periodo.inicio.slice(0, 4)} - ${diaMes(r.periodo.fin)} ${r.periodo.fin.slice(0, 4)}`
+        : `${diaMes(r.periodo.inicio)} - ${diaMes(r.periodo.fin)}`,
       trofeo: recursos.trofeo,
     },
   };

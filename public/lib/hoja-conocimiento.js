@@ -10,7 +10,7 @@
 import { CARRUSEL, pintarFondo, cabecera, cajaOscura } from './carrusel.js';
 import { redondeado, recortar } from './lienzo.js';
 import { ESTILO } from './plantillas.js';
-import { aFecha } from './periodos.js';
+import { aFecha, MESES } from './periodos.js';
 
 const ANCHO = CARRUSEL.ancho;
 const ALTO = CARRUSEL.alto;
@@ -334,9 +334,11 @@ function tarjetaGrafico(ctx, c, serie) {
   tarjeta(ctx, c);
   const x0 = c.x + H.pad;
   const ancho = c.w - H.pad * 2;
-  etiqueta(ctx, 'Preguntas respondidas por día', x0, c.y + 34);
+  // En «Todo el tiempo» la serie va por mes (`mes` en cada punto).
+  const porMes = serie.some((d) => d.mes);
+  etiqueta(ctx, `Preguntas respondidas por ${porMes ? 'mes' : 'día'}`, x0, c.y + 34);
 
-  const semana = serie.length <= 7;
+  const semana = !porMes && serie.length <= 7;
   const max = Math.max(0, ...serie.map((d) => d.preguntas));
   const base = c.y + c.h - 30 - g.dia * 1.2;
   const techo = c.y + 34 + altoEtiqueta() + 24 + g.cifra * 1.3;
@@ -399,12 +401,16 @@ function tarjetaGrafico(ctx, c, serie) {
       ctx.fillText(entero(p.preguntas), p.x, p.y - g.punto - 10);
     }
     const dia = Number(p.fecha.slice(8, 10));
-    if (semana || dia === 1 || dia % 5 === 0) {
+    // Por mes: cada mes, o uno sí y otro no si son más de 12 (con el año en enero).
+    const cadaMes = Math.ceil(puntos.length / 12);
+    if (porMes ? i % cadaMes === 0 : semana || dia === 1 || dia % 5 === 0) {
       ctx.fillStyle = ESTILO.neutral07;
       ctx.font = fG(500, g.dia);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
-      const nombre = semana ? `${DIAS[aFecha(p.fecha).getUTCDay()]} ${dia}` : String(dia);
+      const mes = Number(p.fecha.slice(5, 7));
+      const nombre = porMes ? `${MESES[mes - 1]}${mes === 1 || i === 0 ? ` ${p.fecha.slice(2, 4)}` : ''}`
+        : semana ? `${DIAS[aFecha(p.fecha).getUTCDay()]} ${dia}` : String(dia);
       ctx.fillText(nombre, p.x, base + 10);
     }
   });

@@ -47,6 +47,16 @@ export function inicioMesAnterior(hoy = hoyLocal()) {
   return aISO(new Date(Date.UTC(f.getUTCFullYear(), f.getUTCMonth() - 1, 1)));
 }
 
+// Desde qué día se ofrecen semanas en el reporte: las del mes actual y, en sus
+// primeros 7 días (como la rifa en `mesDeLoteria`), también las del anterior,
+// que aún se están reportando. Cuenta la semana que arranca en el mes anterior
+// y termina en este (su domingo cae desde ese día).
+export function inicioDeSemanasVisibles(hoy = hoyLocal()) {
+  const f = aFecha(hoy);
+  const atras = f.getUTCDate() <= 7 ? 1 : 0;
+  return aISO(new Date(Date.UTC(f.getUTCFullYear(), f.getUTCMonth() - atras, 1)));
+}
+
 // Semanas de lunes a domingo y meses calendario que tocan el rango [min, max].
 // Los que el rango no cubre entero salen marcados como parciales. Del más reciente
 // al más antiguo: lo normal es querer el último.

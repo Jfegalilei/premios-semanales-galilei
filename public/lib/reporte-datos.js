@@ -4,7 +4,7 @@
 import { leerEntregas, leerTabla } from './csv.js';
 import { tipoDeArchivo } from './consultas.js';
 import { agruparPorFamilia, formatearMonto, formatearNombre } from './normalizador.js';
-import { hoyLocal, sumarDias } from './periodos.js';
+import { hoyLocal, sumarDias, diaMes } from './periodos.js';
 import { esAdminDeOtraCompania } from './admins.js';
 
 // "2,026" -> 2026 · "12.5" -> 12.5. Analytics exporta con coma de miles.
@@ -382,16 +382,53 @@ function resenasPorSede(fichas, filas, fotos, fin) {
 const PUESTOS = ['Primer', 'Segundo', 'Tercer'];
 
 const enPeriodo = (periodo) => (f) => f.fecha >= periodo.inicio && f.fecha <= periodo.fin;
+// «Todo el tiempo» es uno solo por compañía: sus filas no traen fecha de arranque.
 const delPeriodo = (compania, periodo) => (f) => (
-  f.compania === compania && f.periodo === periodo.tipo && f.inicio === periodo.inicio
+  f.compania === compania && f.periodo === periodo.tipo && (periodo.tipo === 'total' || f.inicio === periodo.inicio)
 );
 
 // Preguntas respondidas cada día del periodo, con los días sin partidas en 0.
+// En «Todo el tiempo», por mes (`mes: true`): por día serían cientos de puntos.
 function porDia(dias, compania, periodo) {
-  const cuenta = new Map(dias.filter((d) => d.compania === compania).map((d) => [d.fecha, d.preguntas]));
+  const de = dias.filter((d) => d.compania === compania);
+  if (periodo.tipo === 'total') {
+    const cuenta = new Map();
+    for (const d of de) cuenta.set(d.fecha.slice(0, 7), (cuenta.get(d.fecha.slice(0, 7)) || 0) + d.preguntas);
+    const serie = [];
+    for (let m = periodo.inicio.slice(0, 7); m <= periodo.fin.slice(0, 7); m = mesSiguiente(m)) {
+      serie.push({ fecha: `${m}-01`, preguntas: cuenta.get(m) || 0, mes: true });
+    }
+    return serie;
+  }
+  const cuenta = new Map(de.map((d) => [d.fecha, d.preguntas]));
   const serie = [];
   for (let f = periodo.inicio; f <= periodo.fin; f = sumarDias(f, 1)) serie.push({ fecha: f, preguntas: cuenta.get(f) || 0 });
   return serie;
+}
+
+const mesSiguiente = (m) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 1)).toISOString().slice(0, 7);
+
+// Las queries de «Todo el tiempo» (`consultasTodoElTiempo`): todas sus filas
+// llevan `periodo = 'total'`. No se guardan en Firestore.
+export const esDeTodoElTiempo = ({ registros }) => registros.some((r) => r.periodo === 'total');
+
+// El periodo «Todo el tiempo» de lo cargado de esas queries: de la primera
+// partida o premio al final del mes de la última (el cliente se fue ese mes).
+export function periodoTodoElTiempo(datos) {
+  const fechas = [...datos.dias, ...datos.premios].map((f) => f.fecha).filter(Boolean).sort();
+  if (!fechas.length) return null;
+  const inicio = fechas[0];
+  const ultima = fechas[fechas.length - 1];
+  const fin = sumarDias(`${mesSiguiente(ultima.slice(0, 7))}-01`, -1);
+  const conAno = (iso) => `${diaMes(iso)} ${iso.slice(0, 4)}`;
+  return {
+    tipo: 'total',
+    id: `total-${inicio}-${fin}`,
+    inicio,
+    fin,
+    nombre: `Todo el tiempo · ${conAno(inicio)} – ${conAno(fin)}`,
+    parcial: false,
+  };
 }
 
 // Página 1. La query ya trae cada periodo agregado (semanas de lunes a domingo y
@@ -401,10 +438,10 @@ export function conocimiento(datos, compania, periodo) {
   const info = datos.companias.find((c) => c.compania === compania);
 
   return {
-    // En el mes solo cuenta como activo quien jugó 5 partidas o más (lo filtra
-    // la query 1); en la semana, quien jugó al menos una.
+    // En el mes (y en todo el tiempo) solo cuenta como activo quien jugó 5
+    // partidas o más (lo filtra la query 1); en la semana, quien jugó al menos una.
     activos: r ? r.activos : 0,
-    mensual: periodo.tipo === 'mes',
+    mensual: periodo.tipo !== 'semana',
     totalJugadores: info ? info.totalJugadores : null,
     experiencias: info ? info.experiencias : [],
     horas: r ? r.segundos / 3600 : 0,

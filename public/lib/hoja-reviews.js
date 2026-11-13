@@ -126,7 +126,7 @@ function tarjetaGalilei(ctx, c, d) {
   // Corto y claro: de qué periodo son (las fechas exactas van en el chip).
   const cuando = d.periodo.tipo === 'mes'
     ? `en ${MESES_LARGOS[Number(d.periodo.inicio.slice(5, 7)) - 1]}`
-    : 'esta semana';
+    : d.periodo.tipo === 'total' ? 'en total' : 'esta semana';
   etiqueta(ctx, `Reseñas gracias a Galilei ${cuando}`, x, c.y + 34);
 
   const base = c.y + 34 + altoEtiqueta() + 14 + t.cifra * 0.78;

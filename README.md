@@ -507,6 +507,16 @@ instrucción delante: el chat corta el mensaje hacia los 1.900.
    rol, y cuántos cumplen el juego pero no los escaneos. El rol sale del tag de empleado
    (`employee_tag` → `tag`, `kind = 'employee'`); sin tag de técnico cuenta como asesor.
 
+**Todo el tiempo** (reporte de cierre de un cliente que se fue): `consultasTodoElTiempo(compania,
+hasta)` en `public/lib/consultas.js` arma las queries 1 a 3 de una sola compañía, de todo lo que
+hay en la base hasta `hasta`, en un único periodo (`periodo = 'total'` en todas las filas; sin
+semanas, meses ni GaliLotería; activos, quien jugó 5 partidas o más). Al soltar esos CSV la
+página **no los guarda en Firestore** (pisarían los meses de todas las compañías): quedan solo
+en la pestaña, y el selector suma «Todo el tiempo», de la primera partida o premio al final del
+mes de la última. Ese reporte sale sin loterías ni metas, con el gráfico de preguntas por mes y
+el año en el chip de las fechas. Por ahora las queries se sacan desde la consola de Node (no hay
+botón en la página).
+
 El botón «Copiar» pone delante de cada query una instrucción (`INSTRUCCION` en
 `public/lib/consultas.js`): que la corra tal cual, una sola vez, y no haga otras consultas. Sin ella
 el chat a veces corre después una consulta «resumida» por su cuenta y el Export baja esa en vez de
@@ -563,7 +573,9 @@ Cada query se guarda partida por mes (`public/reporte/datos-guardados.js`): una 
 los meses que cubre (el anterior y el actual, los que trae la query) y deja los demás como
 estaban. Se puede subir siempre; cada mes queda con lo último subido. El selector de periodo
 llega hasta hoy y marca «sin datos» los periodos que no tienen; al elegir uno, un aviso pide
-correr las queries y subir los CSV.
+correr las queries y subir los CSV. Muestra todos los meses guardados, pero solo las semanas del
+mes actual (con la que arranca en el anterior y termina en este) y, en los primeros 7 días del
+mes, también las del mes anterior (`inicioDeSemanasVisibles` en `public/lib/periodos.js`).
 
 ### La página
 

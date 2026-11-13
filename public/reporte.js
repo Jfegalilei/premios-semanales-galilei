@@ -11,14 +11,14 @@
 //   reporte/exportar.js     PDF, ZIP y descarga
 //   lib/reporte-datos.js    de los CSV a las cifras de cada hoja
 
-import { periodosEntre, hoyLocal, inicioMesAnterior } from './lib/periodos.js';
+import { periodosEntre, hoyLocal, inicioMesAnterior, inicioDeSemanasVisibles } from './lib/periodos.js';
 import {
   faltaEn, notaIncompleto, pintarAlerta, confirmarDescarga, NOMBRES_CONSULTA,
 } from './lib/incompleto.js';
 import { csvDeEjemplo } from './lib/reporte-demo.js';
 import {
   interpretarArchivo, interpretarTabla, conocimiento, premiosEntregados, reviews, loteria, loteriaAuteco, loteriaResenas, servicios,
-  rangoDeDatos, companiasConDatos, datosHasta, SIN_REVIEWS,
+  rangoDeDatos, companiasConDatos, datosHasta, SIN_REVIEWS, esDeTodoElTiempo, periodoTodoElTiempo,
 } from './lib/reporte-datos.js';
 import { ESTILO } from './lib/plantillas.js';
 import {
@@ -51,6 +51,9 @@ const nombresPendientes = {};
 
 const estado = {
   datos: null,          // ver `datosVacios`
+  // Lo de las queries de «Todo el tiempo» (`consultasTodoElTiempo`), aparte y
+  // sin guardar en Firestore: solo en esta pestaña y solo para ese periodo.
+  total: null,
   ejemplo: false,       // los datos cargados son los inventados
   guardados: [],        // documentos de `reporteDatos` (los CSV del equipo)
   subidas: {},          // query -> { subido, por }: la última subida de cada una
@@ -275,9 +278,14 @@ async function leerArchivos(archivos) {
   for (const archivo of archivos) {
     try {
       const texto = await archivo.text();
+      const tabla = leerTabla(texto);
+      if (tipoDeArchivo(tabla.columnas) === 'reporte' && esDeTodoElTiempo(tabla)) {
+        estado.total = { ...(estado.total || datosVacios()), ...interpretarTabla(tabla) };
+        guardadas.push(`«${archivo.name}» (todo el tiempo, solo en esta pestaña)`);
+        continue;
+      }
       Object.assign(estado.datos, interpretarArchivo(texto));
       estado.ejemplo = false;
-      const tabla = leerTabla(texto);
       // El export de la pieza semanal no se guarda: no es de las queries.
       if (tipoDeArchivo(tabla.columnas) === 'reporte') {
         aviso(`Guardando «${archivo.name}» para el equipo…`);
@@ -293,7 +301,7 @@ async function leerArchivos(archivos) {
     }
   }
   if (errores.length) alert(`No se pudieron leer o guardar:\n${errores.join('\n')}`);
-  aviso(guardadas.length ? `✓ Guardado para el equipo: ${guardadas.join(' · ')}` : '');
+  aviso(guardadas.length ? `✓ Cargado: ${guardadas.join(' · ')}` : '');
   alCambiarDatos();
 }
 
@@ -315,14 +323,21 @@ function cargarEjemplo() {
 // marcados en el selector y piden subir los CSV.
 const clavePeriodo = (tipo, inicio) => `${tipo}|${inicio}`;
 function periodosConDatos() {
-  return new Set([...estado.datos.resumenes, ...estado.datos.resenas].map((f) => clavePeriodo(f.periodo, f.inicio)));
+  const conDatos = new Set([...estado.datos.resumenes, ...estado.datos.resenas].map((f) => clavePeriodo(f.periodo, f.inicio)));
+  if (periodoTotal) conDatos.add(clavePeriodo(periodoTotal.tipo, periodoTotal.inicio));
+  return conDatos;
 }
+
+// Los datos de un periodo: los guardados o, en «Todo el tiempo», los de sus queries.
+let periodoTotal = null;
+const datosDel = (periodo) => (periodo?.tipo === 'total' ? estado.total : estado.datos);
 
 // Hasta qué día llegan los datos de las queries que usa el reporte de `r` (o,
 // sin `r`, de todas las cargadas). Si alguna no llega al final del periodo, el
 // reporte sale con días de menos: `{ hasta, desde, faltan, queries }`; si no, null.
 function incompleto(periodo, r = null) {
-  if (estado.ejemplo) return null;
+  // «Todo el tiempo» llega hasta donde la query dice: no se compara con las subidas.
+  if (estado.ejemplo || periodo?.tipo === 'total') return null;
   const hasta = datosHasta(estado.datos, estado.subidas);
   const usadas = r
     ? [
@@ -337,8 +352,18 @@ function incompleto(periodo, r = null) {
 function alCambiarDatos() {
   pintarArchivos($('#estadoArchivos'), estado.datos, { ejemplo: estado.ejemplo, subidas: estado.subidas });
   const { min, max } = rangoDeDatos(estado.datos);
-  estado.periodos = periodosEntre(min, max);
-  estado.companias = companiasConDatos(estado.datos);
+  // Semanas, solo las del mes actual (y las del anterior si acaba de empezar);
+  // los meses, todos los que haya.
+  const desde = inicioDeSemanasVisibles();
+  periodoTotal = estado.total ? periodoTodoElTiempo(estado.total) : null;
+  estado.periodos = [
+    ...periodosEntre(min, max).filter((p) => p.tipo === 'mes' || p.fin >= desde),
+    ...(periodoTotal ? [periodoTotal] : []),
+  ];
+  estado.companias = [...new Set([
+    ...companiasConDatos(estado.datos),
+    ...(estado.total ? companiasConDatos(estado.total) : []),
+  ])].sort((a, b) => a.localeCompare(b, 'es'));
   // Por defecto, la primera de Training (o la primera que haya).
   if (!estado.companias.includes(estado.seleccion)) {
     estado.seleccion = estado.companias.find((c) => grupoDe(servicios(estado.datos, c)) === 'training')
@@ -369,7 +394,8 @@ function alCambiarDatos() {
 function pintarPeriodos() {
   const select = $('#campoPeriodo');
   const conDatos = periodosConDatos();
-  select.innerHTML = ['semana', 'mes'].map((tipo) => {
+  const grupos = { semana: 'Semanas', mes: 'Meses', total: 'Todo el tiempo' };
+  select.innerHTML = Object.keys(grupos).map((tipo) => {
     const opciones = estado.periodos.filter((p) => p.tipo === tipo)
       .map((p) => {
         const falta = incompleto(p);
@@ -378,7 +404,7 @@ function pintarPeriodos() {
             : p.parcial ? ' (parcial)' : '';
         return `<option value="${p.id}">${p.nombre}${nota}</option>`;
       }).join('');
-    return opciones ? `<optgroup label="${tipo === 'semana' ? 'Semanas' : 'Meses'}">${opciones}</optgroup>` : '';
+    return opciones ? `<optgroup label="${grupos[tipo]}">${opciones}</optgroup>` : '';
   }).join('');
   if (estado.periodo) select.value = estado.periodo.id;
 }
@@ -419,7 +445,8 @@ const tuvoActividad = (r) => Boolean(r.conocimiento.juegos || r.premios.entregas
 // `servicios`: lo que sale en este PDF (lo contratado menos lo que se apagó en
 // «Qué mostrar»); es lo que usan las hojas.
 function reporteDe(compania) {
-  const { datos, periodo } = estado;
+  const { periodo } = estado;
+  const datos = datosDel(periodo);
   const contratado = contratadoDe(compania);
   const visible = vistas.visibles(compania, contratado);
   return {
@@ -443,7 +470,7 @@ function reporteDe(compania) {
 // hoja ni su interruptor.
 const SIN_METAS = /auteco/i;
 function contratadoDe(compania) {
-  const s = servicios(estado.datos, compania);
+  const s = servicios(datosDel(estado.periodo), compania);
   return { ...s, metas: s.training && estado.periodo?.tipo === 'mes' && !SIN_METAS.test(compania) };
 }
 
@@ -451,7 +478,10 @@ function contratadoDe(compania) {
 // propia de Auteco) y, con reseñas, la de Reseñas. Una compañía de solo reseñas
 // abre con la suya y después ve la de training en versión «no participa».
 function loteriasDe(compania, contratado) {
-  const { datos, periodo } = estado;
+  const { periodo } = estado;
+  const datos = datosDel(periodo);
+  // «Todo el tiempo» es un cierre: sin la rifa de un mes.
+  if (periodo.tipo === 'total') return [];
   if (!contratado.training && !contratado.reviews) return [];
   const tipo = loteriaDe(compania);
   const deTraining = {
@@ -551,10 +581,14 @@ function avisos(r) {
         : 'Apagaste todo en «Qué mostrar»: el PDF sale vacío',
     });
   }
-  const sinDatos = estado.datos.resumenes.length && !periodosConDatos().has(clavePeriodo(r.periodo.tipo, r.periodo.inicio));
+  const datos = datosDel(r.periodo);
+  const sinDatos = datos.resumenes.length && !periodosConDatos().has(clavePeriodo(r.periodo.tipo, r.periodo.inicio));
   if (sinDatos) lista.push({ texto: 'Este periodo no tiene datos: corre las queries (paso 1) y sube los CSV (paso 2)' });
-  if (!estado.datos.resumenes.length) lista.push({ texto: 'Falta el CSV de la query 1 (conocimiento)' });
-  if (!estado.datos.companias.length) lista.push({ texto: 'Falta el CSV de la query 2 (compañías y premios)' });
+  if (!datos.resumenes.length) lista.push({ texto: 'Falta el CSV de la query 1 (conocimiento)' });
+  if (!datos.companias.length) lista.push({ texto: 'Falta el CSV de la query 2 (compañías y premios)' });
+  if (r.periodo.tipo === 'total' && r.reviews === null && servicios(estado.datos, r.compania).reviews) {
+    lista.push({ texto: 'Falta el CSV de la query 3 de todo el tiempo (reseñas)' });
+  }
   if (r.periodo.parcial && !sinDatos && !incompleto(r.periodo, r)) lista.push({ texto: 'El periodo no está completo en los datos cargados' });
   for (const l of r.loterias) {
     const { nombre } = LOTERIAS[l.tipo];
