@@ -433,7 +433,8 @@ solo reviews y lotería.
    métrica); sus estrellas y el Top 3 de empleados con más reviews de 5 estrellas (estos dos,
    solo de las de Galilei).
    **Reseñas por sede** (`dibujarResenasPorSede`, misma hoja de código, con «Gracias a Galilei»
-   bajo el título), solo para las compañías con dos sedes o más: una tarjeta por sede con sus
+   bajo el título), solo para las compañías de solo reseñas con dos sedes o más (las que
+   tienen training ya llevan «Reseñas por empleado», que va por sede): una tarjeta por sede con sus
    reseñas por Galilei, su promedio, qué parte del total de la compañía consiguió y, al pie, sus
    reseñas nuevas en total. La sede de cada ficha de Google es la **Location** que apunta a ella
    (`location.google_location_id`); las fichas de una misma Location se suman. Si una ficha no

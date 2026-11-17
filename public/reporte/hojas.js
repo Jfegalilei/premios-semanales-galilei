@@ -7,7 +7,8 @@
 //               inversión total bajo el título; con más de siete premios se parte
 //               en varias páginas, el total solo en la primera y sin «Desliza»
 //               porque es un PDF)
-//   reviews  -> reviews de Google y, con dos fichas o más, reseñas por sede
+//   reviews  -> reviews de Google y, con dos fichas o más y sin training,
+//               reseñas por sede
 //   empleados-> con reseñas: cada empleado con sus reseñas por Galilei, por
 //               sede (una o varias páginas)
 //   loterías -> las de `r.loterias` (ver `loteriasDe` en reporte.js). Con una
@@ -121,8 +122,9 @@ const HOJAS = [
         datos: r.reviews,
       }),
     },
-    // Cada ficha de Google es una sede; con una sola no hace falta.
-    ...(r.reviews.sedes?.length ? [{
+    // Cada ficha de Google es una sede; con una sola no hace falta. Con
+    // training tampoco: ya llevan «Reseñas por empleado», que va por sede.
+    ...(r.reviews.sedes?.length && !r.contratado.training ? [{
       nombre: 'Reseñas por sede',
       dibujar: (lienzo, fondo) => dibujarResenasPorSede(lienzo, {
         ...comunes,

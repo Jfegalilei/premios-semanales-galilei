@@ -609,7 +609,7 @@ function avisos(r) {
   if (r.servicios.training && r.premios.sinSedes) {
     lista.push({ texto: 'El CSV de la query 2 es de una versión vieja (sus premios no traen sede): vuelve a correrla y súbela' });
   }
-  if (r.reviews && r.reviews.sedes === null) {
+  if (r.reviews && r.reviews.sedes === null && !r.contratado.training) {
     lista.push({ texto: 'El CSV de la query 3 es de una versión vieja (no parte las reseñas por sede): vuelve a correrla y súbela' });
   }
   if (r.reviews && r.reviews.empleados === null) {
