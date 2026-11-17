@@ -439,8 +439,8 @@ solo reviews y lotería.
    (`location.google_location_id`); las fichas de una misma Location se suman. Si una ficha no
    apunta a ninguna, se usa su título recortado (`sedeDeFicha`: «Restaurante Mekong Laureles» →
    «Laureles»). Con una sola sede no sale.
-   **Reseñas por empleado** (`dibujarResenasPorEmpleado`, misma hoja de código), solo para las
-   compañías de solo reseñas: una tarjeta por sede con cada empleado y todas sus reseñas por
+   **Reseñas por empleado** (`dibujarResenasPorEmpleado`, misma hoja de código), para todas las
+   compañías con reseñas (tengan o no training): una tarjeta por sede con cada empleado y todas sus reseñas por
    Galilei del periodo (no solo las de 5★), de más a menos y en dos columnas; arriba a la
    derecha, las de la sede. El empleado sale en la sede de la ficha donde consiguió las
    reseñas (si consiguió en dos, sale en las dos). Si no caben en una hoja, `paginasDeEmpleados`

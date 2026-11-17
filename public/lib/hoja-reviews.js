@@ -381,7 +381,7 @@ function tarjetaSede(ctx, c, s, totalGali, k) {
   }
 }
 
-// Hoja «Reseñas por empleado», para las compañías de solo reseñas: una tarjeta
+// Hoja «Reseñas por empleado», para las compañías con reseñas: una tarjeta
 // por sede con cada empleado y sus reseñas por Galilei del periodo, de más a
 // menos, en dos columnas (la primera baja y la segunda sigue el conteo). Si no
 // caben en una hoja, `paginasDeEmpleados` las parte: una sede larga sigue en la

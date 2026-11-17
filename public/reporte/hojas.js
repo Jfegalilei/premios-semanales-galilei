@@ -8,7 +8,7 @@
 //               en varias páginas, el total solo en la primera y sin «Desliza»
 //               porque es un PDF)
 //   reviews  -> reviews de Google y, con dos fichas o más, reseñas por sede
-//   empleados-> solo reseñas: cada empleado con sus reseñas por Galilei, por
+//   empleados-> con reseñas: cada empleado con sus reseñas por Galilei, por
 //               sede (una o varias páginas)
 //   loterías -> las de `r.loterias` (ver `loteriasDe` en reporte.js). Con una
 //               sola (solo training), su hoja completa; con varias (con
@@ -138,8 +138,8 @@ const HOJAS = [
   },
   {
     tipo: 'empleados',
-    // Para las de solo reseñas, que no tienen hoja de premios: quién las consiguió.
-    aplica: (r) => Boolean(r.reviews?.empleados?.length) && !r.contratado.training,
+    // Quién consiguió las reseñas, para todas las que tienen reseñas.
+    aplica: (r) => Boolean(r.reviews?.empleados?.length),
     paginas: (r, { comunes, elegir, recursos }) => {
       const hojas = paginasDeEmpleados(r.reviews.empleados);
       return hojas.map((tarjetas, n) => ({

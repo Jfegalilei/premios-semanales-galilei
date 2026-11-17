@@ -411,7 +411,7 @@ function resenasPorSede(fichas, filas, fotos, fin) {
 
 const nombreDeSede = (ficha) => sedeDeFicha(ficha.nombre, ficha.compania) || 'Sede sin nombre';
 
-// Reseñas por empleado, por sede (hoja de las compañías de solo reseñas): cada
+// Reseñas por empleado, por sede (hoja de las compañías con reseñas): cada
 // empleado con todas sus reseñas por Galilei del periodo, en la sede de la ficha
 // en la que las consiguió (como en `resenasPorSede`; quien consiguió en dos sedes
 // sale en las dos). Las sedes, de más a menos reseñas, y en cada una los

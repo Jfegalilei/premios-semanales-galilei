@@ -612,7 +612,7 @@ function avisos(r) {
   if (r.reviews && r.reviews.sedes === null) {
     lista.push({ texto: 'El CSV de la query 3 es de una versión vieja (no parte las reseñas por sede): vuelve a correrla y súbela' });
   }
-  if (r.reviews && r.reviews.empleados === null && !r.contratado.training) {
+  if (r.reviews && r.reviews.empleados === null) {
     lista.push({ texto: 'El CSV de la query 3 es de una versión vieja (no trae las reseñas de cada empleado por sede): vuelve a correrla y súbela' });
   }
   if (r.reviews?.estrellasViejas) {
