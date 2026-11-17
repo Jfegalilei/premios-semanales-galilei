@@ -8,6 +8,8 @@
 //               en varias páginas, el total solo en la primera y sin «Desliza»
 //               porque es un PDF)
 //   reviews  -> reviews de Google y, con dos fichas o más, reseñas por sede
+//   empleados-> solo reseñas: cada empleado con sus reseñas por Galilei, por
+//               sede (una o varias páginas)
 //   loterías -> las de `r.loterias` (ver `loteriasDe` en reporte.js). Con una
 //               sola (solo training), su hoja completa; con varias (con
 //               reseñas), todas en una hoja: la de Reseñas con clasificados y
@@ -18,18 +20,27 @@
 
 import { diaMes } from '../lib/periodos.js';
 import { dibujarConocimiento } from '../lib/hoja-conocimiento.js';
-import { dibujarReviews, dibujarResenasPorSede } from '../lib/hoja-reviews.js';
+import {
+  dibujarReviews, dibujarResenasPorSede, dibujarResenasPorEmpleado, paginasDeEmpleados,
+} from '../lib/hoja-reviews.js';
 import {
   dibujarMetas, dibujarAviso, tituloMetas, SIN_PREMIOS,
 } from '../lib/hoja-metas.js';
 import { dibujarLoteria, dibujarLoterias } from '../lib/hoja-loteria.js';
-import { armarCarrusel, dibujarDiapositiva } from '../lib/carrusel.js';
+import { armarCarrusel, dibujarDiapositiva, categoriaPorDefecto } from '../lib/carrusel.js';
 import { personajeDe, azarConSemilla } from '../lib/lienzo.js';
 import { valorDe, armarGrupo } from '../lib/grupos.js';
 import { LOTERIAS, rifaParaHoja } from './loterias.js';
 import { premiosPorSede } from '../lib/reporte-datos.js';
 
 const enPesos = (n) => `$${Math.round(n).toLocaleString('es-CO')}`;
+
+// Si el premio es plata: la categoría de la biblioteca, o la que le toca por su id.
+function esPlata(grupo, catalogo) {
+  const id = grupo.baseId || grupo.id;
+  const entrada = catalogo.find((p) => p.id === id);
+  return (entrada?.categoria || categoriaPorDefecto(id, entrada?.desglose)) === 'plata';
+}
 
 const HOJAS = [
   {
@@ -56,8 +67,10 @@ const HOJAS = [
     tipo: 'premios',
     aplica: (r) => r.servicios.training,
     paginas: (r, { comunes, elegir, recursos }) => {
+      // La plata (Nequi, Transferencias) primero, y luego del más caro al más barato.
       const grupos = [...r.premios.grupos]
-        .sort((a, b) => valorDe(b, recursos.catalogo) - valorDe(a, recursos.catalogo) || b.conteo - a.conteo)
+        .sort((a, b) => esPlata(b, recursos.catalogo) - esPlata(a, recursos.catalogo)
+          || valorDe(b, recursos.catalogo) - valorDe(a, recursos.catalogo) || b.conteo - a.conteo)
         // Cada premio lleva sus entregas: de ahí salen las sedes de su página.
         .map((g) => ({ ...armarGrupo(g, recursos.catalogo, recursos.imagenes), entregas: g.entregas }));
       const diapositivas = armarCarrusel(grupos);
@@ -122,6 +135,26 @@ const HOJAS = [
         datos: r.reviews,
       }),
     }] : [])],
+  },
+  {
+    tipo: 'empleados',
+    // Para las de solo reseñas, que no tienen hoja de premios: quién las consiguió.
+    aplica: (r) => Boolean(r.reviews?.empleados?.length) && !r.contratado.training,
+    paginas: (r, { comunes, elegir, recursos }) => {
+      const hojas = paginasDeEmpleados(r.reviews.empleados);
+      return hojas.map((tarjetas, n) => ({
+        nombre: hojas.length > 1 ? `Reseñas por empleado (${n + 1} de ${hojas.length})` : 'Reseñas por empleado',
+        dibujar: (lienzo, fondo) => dibujarResenasPorEmpleado(lienzo, {
+          ...comunes,
+          titulo: 'Reseñas por empleado',
+          subtitulo: 'Gracias a Galilei',
+          personaje: elegir(recursos.personajes, `reviews-empleados-${n}`),
+          fondo,
+          trofeo: null,
+          tarjetas,
+        }),
+      }));
+    },
   },
   {
     tipo: 'loteria',

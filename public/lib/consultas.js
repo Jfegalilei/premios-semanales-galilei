@@ -48,9 +48,11 @@
 //             t1 google_location_id   (desde 60 días antes: la calificación al
 //             cierre de un periodo es la última foto hasta ese día, que puede ser
 //             anterior a su arranque)
-//   emp       player_id, n1 reviews de 5 estrellas por Gali   (cada empleado con al
-//             menos una, por periodo: de aquí salen el Top 3 y los clasificados a
-//             la Lotería de Reseñas).
+//   emp       player_id, n1 reviews de 5 estrellas por Gali, n2 reviews por Gali
+//             (todas las estrellas), t1 la ficha   (cada empleado con al menos una
+//             por Gali, por periodo y ficha: de las 5 estrellas salen el Top 3 y
+//             los clasificados a la Lotería de Reseñas; de n2 y la ficha, la hoja
+//             de reseñas por empleado, por sede).
 //             Se cuenta por `review_click.employee_id` (el dueño de la tarjeta):
 //             el `player_id` del clic no es el empleado. El jugador sale de
 //             `player.employee_id` o del actor del empleado (`actor.employee_id`),
@@ -121,7 +123,7 @@ rp AS(SELECT r.*,em,gc.ri IS NOT NULL ga,v.per,v.ini FROM r LEFT JOIN gc USING(r
 SELECT 'ficha' tipo,co compania,NULL periodo,NULL fecha,NULL::uuid player_id,NULL n1,NULL n2,NULL n3,NULL n4,gi t1,ti t2,NULL::uuid employee_id FROM gl
 UNION ALL SELECT 'rev',co,per,ini,NULL,COUNT(*),COUNT(*)FILTER(WHERE ga),AVG(e)FILTER(WHERE ga),NULL,gi,NULL,NULL FROM rp GROUP BY 2,3,4,10
 UNION ALL SELECT 'estrellas',co,per,ini,NULL,e,COUNT(*),NULL,NULL,NULL,NULL,NULL FROM rp WHERE ga GROUP BY 2,3,4,6
-UNION ALL SELECT 'emp',co,per,ini,(SELECT p.player_id FROM player p JOIN actor a USING(actor_id) WHERE em IN(p.employee_id,a.employee_id) LIMIT 1),COUNT(*),NULL,NULL,NULL,NULL,NULL,em FROM rp WHERE ga AND e=5 AND em IS NOT NULL GROUP BY co,per,ini,em
+UNION ALL SELECT 'emp',co,per,ini,(SELECT p.player_id FROM player p JOIN actor a USING(actor_id) WHERE em IN(p.employee_id,a.employee_id) LIMIT 1),COUNT(*)FILTER(WHERE e=5),COUNT(*),NULL,NULL,gi,NULL,em FROM rp WHERE ga AND em IS NOT NULL GROUP BY 2,3,4,10,12
 UNION ALL SELECT 'foto',co,NULL,snapshot_date,NULL,average_rating,total_rating_count,NULL,NULL,gi,NULL,NULL FROM location_rating_snapshot JOIN gl ON gi=google_location_id WHERE snapshot_date>=(SELECT d FROM k)::date-60`,
   },
   {
@@ -148,7 +150,7 @@ SELECT 'auteco' tipo,co compania,'mes' periodo,mes fecha,NULL::uuid player_id,CO
 //   - sin semanas ni meses ni GaliLotería: un solo agregado. Activos (en el
 //     resumen y en el Top 3 de sedes): el activo del mes (5 partidas o más)
 //     generalizado, 5 partidas por cada mes del periodo (`um`, de la primera
-//     partida a la última: 7 meses, 35 partidas). El resumen trae ese umbral en `t1`.
+//     partida a la última: en La Causa, de abril a septiembre, 30). El resumen trae ese umbral en `t1`.
 // `dia` va de la primera partida a la última: de ahí sale el arranque del periodo.
 // Las fotos de la calificación, solo los 90 días antes del cierre.
 export function consultasTodoElTiempo(compania, hasta) {
@@ -186,7 +188,7 @@ rp AS(SELECT review_id ri,co,gi,array_position(ARRAY['ONE','TWO','THREE','FOUR',
 SELECT 'ficha' tipo,co compania,'total' periodo,NULL::date fecha,NULL::uuid player_id,NULL n1,NULL n2,NULL n3,NULL n4,gi t1,ti t2,NULL::uuid employee_id FROM gl
 UNION ALL SELECT 'rev',co,'total',NULL,NULL,COUNT(*),COUNT(*)FILTER(WHERE ga),AVG(e)FILTER(WHERE ga),NULL,gi,NULL,NULL FROM rp GROUP BY co,gi
 UNION ALL SELECT 'estrellas',co,'total',NULL,NULL,e,COUNT(*),NULL,NULL,NULL,NULL,NULL FROM rp WHERE ga GROUP BY co,e
-UNION ALL SELECT 'emp',co,'total',NULL,(SELECT p.player_id FROM player p JOIN actor a USING(actor_id) WHERE em IN(p.employee_id,a.employee_id) LIMIT 1),COUNT(*),NULL,NULL,NULL,NULL,NULL,em FROM rp WHERE ga AND e=5 AND em IS NOT NULL GROUP BY co,em
+UNION ALL SELECT 'emp',co,'total',NULL,(SELECT p.player_id FROM player p JOIN actor a USING(actor_id) WHERE em IN(p.employee_id,a.employee_id) LIMIT 1),COUNT(*)FILTER(WHERE e=5),COUNT(*),NULL,NULL,gi,NULL,em FROM rp WHERE ga AND em IS NOT NULL GROUP BY co,em,gi
 UNION ALL SELECT 'foto',co,'total',snapshot_date,NULL,average_rating,total_rating_count,NULL,NULL,gi,NULL,NULL FROM location_rating_snapshot JOIN gl ON gi=google_location_id WHERE snapshot_date>='${fotosDesde}' AND snapshot_date<'${hasta}'`,
     },
   ];

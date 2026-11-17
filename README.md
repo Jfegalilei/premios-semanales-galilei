@@ -439,6 +439,14 @@ solo reviews y lotería.
    (`location.google_location_id`); las fichas de una misma Location se suman. Si una ficha no
    apunta a ninguna, se usa su título recortado (`sedeDeFicha`: «Restaurante Mekong Laureles» →
    «Laureles»). Con una sola sede no sale.
+   **Reseñas por empleado** (`dibujarResenasPorEmpleado`, misma hoja de código), solo para las
+   compañías de solo reseñas: una tarjeta por sede con cada empleado y todas sus reseñas por
+   Galilei del periodo (no solo las de 5★), de más a menos y en dos columnas; arriba a la
+   derecha, las de la sede. El empleado sale en la sede de la ficha donde consiguió las
+   reseñas (si consiguió en dos, sale en las dos). Si no caben en una hoja, `paginasDeEmpleados`
+   las reparte: una sede que cabe entera en una hoja nueva no se parte; la que no cabe ni sola
+   sigue en la siguiente con «(cont.)». Con un CSV de la query 3 de antes de este cambio sale
+   un aviso para volver a correrla.
 4. **GaliLotería** (`public/lib/hoja-loteria.js`), para todas menos Auteco, que en su lugar
    recibe la **Lotería Auteco** (misma hoja, con sus requisitos, sus clasificados por rol y su
    propia rifa en `premiosConfig/loteriaAuteco`): la última rifa (premio, ganador, empresa y botón al live, que en el PDF es un
@@ -497,7 +505,8 @@ instrucción delante: el chat corta el mensaje hacia los 1.900.
 3. **Reviews de Google**, de las fichas activas (`google_location.is_enabled`): las fichas, por
    periodo y ficha las reviews nuevas y las de Galilei con su promedio (`rev`; el navegador las
    suma para la compañía y las usa tal cual para las reseñas por sede), las de Galilei por
-   estrellas (`estrellas`) y cada empleado con sus reviews 5★ por Galilei (`emp`), y las fotos de la calificación (`foto`, de `location_rating_snapshot`) desde 60 días
+   estrellas (`estrellas`) y cada empleado por ficha con sus reviews 5★ y todas sus reviews por
+   Galilei (`emp`: `n1`, `n2` y la ficha en `t1`; el Top 3 y la lotería suman las fichas), y las fotos de la calificación (`foto`, de `location_rating_snapshot`) desde 60 días
    antes, para tener con qué comparar el arranque del periodo. El `rating` llega en palabras
    (`ONE` a `FIVE`) y la query lo pasa a número. Las filas `emp` traen también `employee_id`,
    para que Analytics le ponga nombre al empleado que no tiene jugador (compañías de solo
@@ -512,8 +521,7 @@ hasta)` en `public/lib/consultas.js` arma las queries 1 a 3 de una sola compañ�
 hay en la base hasta `hasta`, en un único periodo (`periodo = 'total'` en todas las filas; sin
 semanas, meses ni GaliLotería; activos, quien jugó 5 partidas por cada mes del periodo, de la primera partida a la última: en 7 meses, 35 o más). Al soltar esos CSV la
 página **no los guarda en Firestore** (pisarían los meses de todas las compañías): quedan solo
-en la pestaña, y el selector suma «Todo el tiempo», de la primera partida o premio al final del
-mes de la última. Ese reporte sale sin loterías ni metas, con el gráfico de preguntas por mes y
+en la pestaña, y el selector suma «Todo el tiempo», de la primera partida o premio a la última. Ese reporte sale sin loterías ni metas, con el gráfico de preguntas por mes y
 el año en el chip de las fechas. Por ahora las queries se sacan desde la consola de Node (no hay
 botón en la página).
 

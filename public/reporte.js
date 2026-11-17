@@ -589,6 +589,9 @@ function avisos(r) {
   const sinDatos = datos.resumenes.length && !periodosConDatos().has(clavePeriodo(r.periodo.tipo, r.periodo.inicio));
   if (sinDatos) lista.push({ texto: 'Este periodo no tiene datos: corre las queries (paso 1) y sube los CSV (paso 2)' });
   if (!datos.resumenes.length) lista.push({ texto: 'Falta el CSV de la query 1 (conocimiento)' });
+  if (r.periodo.tipo === 'total' && datos.resumenes.length && !r.conocimiento.umbral) {
+    lista.push({ texto: 'El CSV de la query 1 de todo el tiempo es de una versión vieja (activos con 5 partidas en un mes): vuelve a correrla y súbela' });
+  }
   if (!datos.companias.length) lista.push({ texto: 'Falta el CSV de la query 2 (compañías y premios)' });
   if (r.periodo.tipo === 'total' && r.reviews === null && servicios(estado.datos, r.compania).reviews) {
     lista.push({ texto: 'Falta el CSV de la query 3 de todo el tiempo (reseñas)' });
@@ -608,6 +611,9 @@ function avisos(r) {
   }
   if (r.reviews && r.reviews.sedes === null) {
     lista.push({ texto: 'El CSV de la query 3 es de una versión vieja (no parte las reseñas por sede): vuelve a correrla y súbela' });
+  }
+  if (r.reviews && r.reviews.empleados === null && !r.contratado.training) {
+    lista.push({ texto: 'El CSV de la query 3 es de una versión vieja (no trae las reseñas de cada empleado por sede): vuelve a correrla y súbela' });
   }
   if (r.reviews?.estrellasViejas) {
     lista.push({ texto: 'El CSV de la query 3 es de una versión vieja (sus estrellas cuentan todas las reseñas): vuelve a correrla y súbela' });

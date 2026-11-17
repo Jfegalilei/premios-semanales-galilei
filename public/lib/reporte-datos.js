@@ -131,7 +131,20 @@ export function interpretarTabla({ registros }) {
     } else if (r.tipo === 'estrellas') {
       datos.estrellas.push({ ...periodo, estrellas: aNumero(r.n1), reviews: aNumero(r.n2) });
     } else if (r.tipo === 'emp') {
-      datos.embajadores.push({ ...periodo, playerId: r.playerid, nombre: formatearNombre(nombreDe(r)), reviews: aNumero(r.n1) });
+      datos.embajadores.push({
+        ...periodo,
+        playerId: r.playerid,
+        // Quién es: el empleado (los de solo reseñas no tienen jugador). Un
+        // empleado trae una fila por ficha en la que consiguió reseñas.
+        empleado: r.employeeid || r.playerid || '',
+        nombre: formatearNombre(nombreDe(r)),
+        // Las de 5 estrellas (Top 3 y Lotería de Reseñas).
+        reviews: aNumero(r.n1),
+        // Todas las por Galilei y la ficha: vacías en un CSV de antes de que la
+        // query 3 las trajera (ahí solo venían los de 5 estrellas, sin ficha).
+        porGali: aNumero(r.n2),
+        ficha: r.t1 || '',
+      });
     } else if (r.tipo === 'foto') {
       datos.fotos.push({ compania: r.compania, ficha: r.t1, fecha, calificacion: aNumero(r.n1), total: aNumero(r.n2) });
     } else if (r.tipo === 'dia') {
@@ -242,7 +255,7 @@ const entero = (n) => Math.round(n).toLocaleString('es-CO');
 export const RESENAS_PARA_CLASIFICAR = 50;
 export function loteriaResenas(datos, compania, periodo) {
   const mes = mesDeLoteria(periodo);
-  const del = datos.embajadores.filter((e) => e.compania === compania && e.periodo === 'mes' && e.inicio === mes);
+  const del = porEmpleado(datos.embajadores.filter((e) => e.compania === compania && e.periodo === 'mes' && e.inicio === mes));
   const meta = RESENAS_PARA_CLASIFICAR;
   return {
     mes,
@@ -251,6 +264,19 @@ export function loteriaResenas(datos, compania, periodo) {
     unidad: ['empleado', 'empleados'],
     clasificados: del.filter((e) => e.reviews >= meta).length,
   };
+}
+
+// Las filas `emp` de un empleado (una por ficha) en una: suma sus reseñas.
+function porEmpleado(filas) {
+  const uno = new Map();
+  for (const f of filas) {
+    const clave = f.empleado || f.playerId || f.nombre;
+    const previo = uno.get(clave);
+    uno.set(clave, previo
+      ? { ...previo, nombre: previo.nombre || f.nombre, reviews: previo.reviews + f.reviews, porGali: previo.porGali + f.porGali }
+      : { ...f });
+  }
+  return [...uno.values()];
 }
 
 export const SIN_REVIEWS = () => ({ fichas: [], resenas: [], estrellas: [], embajadores: [], fotos: [] });
@@ -300,12 +326,14 @@ export function reviews(datos, compania, periodo) {
     estrellasViejas: Boolean(r && r.nuevas !== r.porGali
       && estrellas.reduce((t, e) => t + e.reviews, 0) === r.nuevas),
     estrellas,
-    top: datos.embajadores.filter(delPeriodo(compania, periodo))
+    top: porEmpleado(datos.embajadores.filter(delPeriodo(compania, periodo)))
+      .filter((e) => e.reviews > 0)
       .sort((a, b) => b.reviews - a.reviews)
       .slice(0, 3)
       // Sin nombre registrado: el puesto que ocupa en el top.
       .map((e, i) => ({ ...e, nombre: e.nombre || `${PUESTOS[i]} Puesto` })),
     sedes: resenasPorSede(fichas, filas, fotos, periodo.fin),
+    empleados: empleadosPorSede(fichas, datos.embajadores.filter(delPeriodo(compania, periodo))),
   };
 }
 
@@ -358,7 +386,7 @@ export function sedeDeFicha(titulo, compania = '') {
 function resenasPorSede(fichas, filas, fotos, fin) {
   const sedes = new Map();
   for (const ficha of fichas) {
-    const nombre = sedeDeFicha(ficha.nombre, ficha.compania) || 'Sede sin nombre';
+    const nombre = nombreDeSede(ficha);
     if (!sedes.has(nombre)) sedes.set(nombre, []);
     sedes.get(nombre).push(ficha.id);
   }
@@ -379,6 +407,31 @@ function resenasPorSede(fichas, filas, fotos, fin) {
       totalGoogle: total || null,
     };
   }).sort((a, b) => b.porGali - a.porGali || a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+const nombreDeSede = (ficha) => sedeDeFicha(ficha.nombre, ficha.compania) || 'Sede sin nombre';
+
+// Reseñas por empleado, por sede (hoja de las compañías de solo reseñas): cada
+// empleado con todas sus reseñas por Galilei del periodo, en la sede de la ficha
+// en la que las consiguió (como en `resenasPorSede`; quien consiguió en dos sedes
+// sale en las dos). Las sedes, de más a menos reseñas, y en cada una los
+// empleados igual; solo las que tienen alguna. `null` si el CSV de la query 3 es
+// de antes de que trajera la ficha y todas las reseñas de cada empleado.
+function empleadosPorSede(fichas, filas) {
+  if (filas.length && !filas.some((f) => f.ficha)) return null;
+  const sedeDe = new Map(fichas.map((f) => [f.id, nombreDeSede(f)]));
+  const sedes = new Map();
+  for (const f of filas) {
+    if (!f.porGali) continue;
+    const nombre = sedeDe.get(f.ficha) || 'Sede sin nombre';
+    if (!sedes.has(nombre)) sedes.set(nombre, []);
+    sedes.get(nombre).push(f);
+  }
+  const orden = (a, b) => b.porGali - a.porGali || a.nombre.localeCompare(b.nombre, 'es');
+  return [...sedes].map(([nombre, de]) => {
+    const empleados = porEmpleado(de).map((e) => ({ nombre: e.nombre || 'Sin nombre registrado', porGali: e.porGali })).sort(orden);
+    return { nombre, porGali: empleados.reduce((s, e) => s + e.porGali, 0), empleados };
+  }).sort(orden);
 }
 
 const PUESTOS = ['Primer', 'Segundo', 'Tercer'];
@@ -415,13 +468,14 @@ const mesSiguiente = (m) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.sl
 export const esDeTodoElTiempo = ({ registros }) => registros.some((r) => r.periodo === 'total');
 
 // El periodo «Todo el tiempo» de lo cargado de esas queries: de la primera
-// partida o premio al final del mes de la última (el cliente se fue ese mes).
+// partida o premio a la última (La Causa: del 16 de abril al 11 de septiembre,
+// el día en que se hizo efectiva la salida).
 export function periodoTodoElTiempo(datos) {
   const fechas = [...datos.dias, ...datos.premios].map((f) => f.fecha).filter(Boolean).sort();
   if (!fechas.length) return null;
   const inicio = fechas[0];
   const ultima = fechas[fechas.length - 1];
-  const fin = sumarDias(`${mesSiguiente(ultima.slice(0, 7))}-01`, -1);
+  const fin = ultima;
   const conAno = (iso) => `${diaMes(iso)} ${iso.slice(0, 4)}`;
   return {
     tipo: 'total',

@@ -380,3 +380,135 @@ function tarjetaSede(ctx, c, s, totalGali, k) {
     }
   }
 }
+
+// Hoja «Reseñas por empleado», para las compañías de solo reseñas: una tarjeta
+// por sede con cada empleado y sus reseñas por Galilei del periodo, de más a
+// menos, en dos columnas (la primera baja y la segunda sigue el conteo). Si no
+// caben en una hoja, `paginasDeEmpleados` las parte: una sede larga sigue en la
+// siguiente con «(cont.)».
+const E = { arriba: 32, abajo: 24, hueco: 18, fila: 52, nombre: 28, cifra: 30, puesto: 22, columnas: 2, entreColumnas: 56 };
+const cabezaSede = () => E.arriba + altoEtiqueta() + E.hueco + E.abajo;
+
+/**
+ * Reparte las sedes de `reviews().empleados` en hojas. Cada hoja es una lista de
+ * tarjetas { nombre, porGali, empleados, desde (puesto del primero), filas, sigue }.
+ */
+export function paginasDeEmpleados(sedes) {
+  const hojas = [];
+  const total = H.pie - H.arriba;
+  let actual = [];
+  let libre = total;
+  const cerrar = () => {
+    if (actual.length) hojas.push(actual);
+    actual = [];
+    libre = total;
+  };
+  for (const sede of sedes) {
+    let desde = 0;
+    while (desde < sede.empleados.length) {
+      const quedan = Math.ceil((sede.empleados.length - desde) / E.columnas);
+      const hueco = actual.length ? H.hueco : 0;
+      const caben = Math.floor((libre - hueco - cabezaSede()) / E.fila);
+      // Una sede que no cabe aquí pero sí entera en una hoja nueva va a la
+      // siguiente: solo se parte la que no cabe ni en una hoja sola (y nunca
+      // dejando menos de dos filas aquí).
+      const enteraEnOtra = desde === 0 && cabezaSede() + quedan * E.fila <= total;
+      if (actual.length && caben < quedan && (enteraEnOtra || caben < 2)) {
+        cerrar();
+        continue;
+      }
+      const filas = Math.max(1, Math.min(caben, quedan));
+      const empleados = sede.empleados.slice(desde, desde + filas * E.columnas);
+      actual.push({ nombre: sede.nombre, porGali: sede.porGali, empleados, desde, filas, sigue: desde > 0 });
+      libre -= hueco + cabezaSede() + filas * E.fila;
+      desde += empleados.length;
+    }
+  }
+  cerrar();
+  return hojas;
+}
+
+/**
+ * @param {HTMLCanvasElement} canvas
+ * @param {object} op  cabecera, como `dibujarReviews`, y `tarjetas`, una hoja
+ *   de `paginasDeEmpleados`.
+ */
+export function dibujarResenasPorEmpleado(canvas, op) {
+  const { escala } = CARRUSEL;
+  canvas.width = ANCHO * escala;
+  canvas.height = ALTO * escala;
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.setTransform(escala, 0, 0, escala, 0, 0);
+  ctx.imageSmoothingQuality = 'high';
+
+  let y = H.arriba;
+  const cajas = op.tarjetas.map((t) => {
+    const c = { x: H.x, y, w: H.w, h: cabezaSede() + t.filas * E.fila, radio: H.radio };
+    y += c.h + H.hueco;
+    return c;
+  });
+
+  pintarFondo(ctx, op.fondo);
+  cabecera(ctx, { ...op, tarjetas: cajas });
+  op.tarjetas.forEach((t, i) => tarjetaEmpleados(ctx, cajas[i], t));
+
+  ctx.restore();
+  return canvas;
+}
+
+function tarjetaEmpleados(ctx, c, t) {
+  tarjeta(ctx, c);
+  const x = c.x + H.pad;
+  const derecha = c.x + c.w - H.pad;
+  const arriba = c.y + E.arriba;
+
+  // A la derecha, las reseñas de la sede; el nombre se recorta para no pisarlas.
+  const total = `${entero(t.porGali)} ${t.porGali === 1 ? 'reseña' : 'reseñas'}`;
+  ctx.font = fG(500, 26);
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = ESTILO.neutral07;
+  ctx.fillText(total, derecha, arriba + 1);
+  const anchoTotal = ctx.measureText(total).width;
+  ctx.save();
+  ctx.font = fG(700, H.etiqueta);
+  ctx.letterSpacing = '3px';
+  const nombre = recortar(ctx, `${t.nombre}${t.sigue ? ' (cont.)' : ''}`.toUpperCase(), c.w - H.pad * 2 - anchoTotal - 24);
+  ctx.restore();
+  etiqueta(ctx, nombre, x, arriba);
+
+  const y0 = arriba + altoEtiqueta() + E.hueco;
+  const anchoCol = (c.w - H.pad * 2 - E.entreColumnas * (E.columnas - 1)) / E.columnas;
+  t.empleados.forEach((e, i) => {
+    const col = Math.floor(i / t.filas);
+    const fila = i % t.filas;
+    const cx = x + col * (anchoCol + E.entreColumnas);
+    const cy = y0 + fila * E.fila + E.fila / 2;
+
+    // Línea tenue entre filas.
+    if (fila) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.fillRect(cx, y0 + fila * E.fila, anchoCol, 1);
+    }
+
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = ESTILO.neutral07;
+    ctx.font = fG(500, E.puesto);
+    const anchoPuesto = ctx.measureText(`${t.desde + t.empleados.length}.`).width;
+    ctx.fillText(`${t.desde + i + 1}.`, cx, cy + 1);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = ESTILO.blanco;
+    ctx.font = fT(700, E.cifra);
+    const cifra = entero(e.porGali);
+    ctx.fillText(cifra, cx + anchoCol, cy + 1);
+    const anchoCifra = ctx.measureText(cifra).width;
+
+    ctx.textAlign = 'left';
+    ctx.font = fG(500, E.nombre);
+    const xNombre = cx + anchoPuesto + 12;
+    ctx.fillText(recortar(ctx, e.nombre, cx + anchoCol - anchoCifra - 16 - xNombre), xNombre, cy + 1);
+  });
+}

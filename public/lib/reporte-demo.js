@@ -118,7 +118,14 @@ export function csvDeEjemplo() {
             f.gali += 1;
             f.suma += e;
           }
-          if (gali && e === 5) a.embajadores.set(quien, (a.embajadores.get(quien) || 0) + 1);
+          // Como la query 3: por empleado y ficha, las de 5 estrellas y todas.
+          if (gali) {
+            const clave = `${quien}|${ficha.id}`;
+            const emp = a.embajadores.get(clave) || { quien, ficha: ficha.id, cinco: 0, todas: 0 };
+            emp.cinco += e === 5 ? 1 : 0;
+            emp.todas += 1;
+            a.embajadores.set(clave, emp);
+          }
         }
         ficha.calificacion = (ficha.calificacion * ficha.total + e) / (ficha.total + 1);
         ficha.total += 1;
@@ -152,8 +159,9 @@ export function csvDeEjemplo() {
       fila('rev', COMPANIA, a.per, a.ini, '', f.nuevas, f.gali, f.gali ? (f.suma / f.gali).toFixed(2) : '', '', id, '', '', '');
     }
     a.estrellas.forEach((n, i) => n && fila('estrellas', COMPANIA, a.per, a.ini, '', i + 1, n, '', '', '', '', '', ''));
-    [...a.embajadores.entries()]
-      .forEach(([i, n]) => fila('emp', COMPANIA, a.per, a.ini, `demo-${i}`, n, '', '', '', '', '', '', q(JUGADORES[i])));
+    for (const { quien, ficha, cinco, todas } of a.embajadores.values()) {
+      fila('emp', COMPANIA, a.per, a.ini, `demo-${quien}`, cinco, todas, '', '', ficha, '', '', q(JUGADORES[quien]));
+    }
   }
   // Una segunda compañía que solo tiene reviews (sin training): sus filas son las
   // de reviews de la primera, con otro nombre. Así el ejemplo muestra los dos
