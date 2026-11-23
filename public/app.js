@@ -1266,7 +1266,13 @@ function etiquetaDe(compania) {
   return fechasDe(estado.periodo);
 }
 
-const fechasDe = (periodo) => `${diaMes(periodo.inicio)} - ${diaMes(periodo.fin)}`;
+// Si a los datos les faltan días, la etiqueta llega hasta el último día cargado:
+// la pieza no dice «hasta el 11 Oct» si solo trae premios hasta el 8.
+function fechasDe(periodo) {
+  const falta = incompleto(periodo);
+  const fin = falta && falta.hasta >= periodo.inicio ? falta.hasta : periodo.fin;
+  return `${diaMes(periodo.inicio)} - ${diaMes(fin)}`;
+}
 
 // Solo informativo, debajo de la etiqueta: de qué fecha a qué fecha van las
 // entregas de esta compañía en el periodo.
