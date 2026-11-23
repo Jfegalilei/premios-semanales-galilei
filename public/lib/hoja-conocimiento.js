@@ -86,7 +86,8 @@ export function dibujarConocimiento(canvas, op) {
     d.juegos ? entero(d.preguntas) : '—',
   ]);
   tarjetaGrafico(ctx, cajas.grafico, d.porDia);
-  cajaTop(ctx, cajas.top, d.locations, d.juegos > 0, d.mensual && !d.activos, d.porActivos);
+  if (d.qr) cajaTopQr(ctx, cajas.top, d.qr);
+  else cajaTop(ctx, cajas.top, d.locations, d.juegos > 0, d.mensual && !d.activos);
 
   ctx.restore();
   return canvas;
@@ -420,20 +421,38 @@ function tarjetaGrafico(ctx, c, serie) {
 // Las tres sedes con mayor porcentaje de sus jugadores con partidas: el
 // porcentaje grande a la derecha y, a su lado, cuántos de cuántos.
 // En el mes solo cuentan quienes jugaron 5 partidas o más (como en activos).
-// Con `porActivos` (Auteco) van las de más jugadores activos: la cifra grande es
-// esa cantidad y, a su lado, de cuántos y el porcentaje.
-function cajaTop(ctx, c, top, huboPartidas, nadieConCinco, porActivos = false) {
+function cajaTop(ctx, c, top, huboPartidas, nadieConCinco) {
+  const vacio = !huboPartidas ? 'Sin partidas en este periodo' : nadieConCinco ? 'Nadie jugó 5 partidas o más' : 'Sin sedes asignadas';
+  filasTop(ctx, c, 'Top 3 sedes más activas', vacio, top.map((l) => ({
+    nombre: l.nombre,
+    cifra: `${Math.round(l.parte * 100)}%`,
+    dato: `${entero(l.activos)}/${entero(l.total)} jugadores`,
+  })));
+}
+
+// Auteco: en vez de las sedes, las tres personas con más escaneos QR de
+// baterías validados en el periodo; la cifra grande es cuántos y, a su lado, el rol.
+function cajaTopQr(ctx, c, qr) {
+  const vacio = qr.cargado ? 'Sin escaneos en este periodo' : 'Falta la query 4 (Lotería Auteco)';
+  filasTop(ctx, c, 'Top 3 escaneos QR', vacio, qr.top.map((p) => ({
+    nombre: p.nombre || 'Sin nombre',
+    cifra: entero(p.escaneos),
+    dato: p.rol ? `escaneos · ${p.rol}` : 'escaneos',
+  })));
+}
+
+// La caja de un Top 3: medalla, nombre, dato chico y cifra grande a la derecha.
+function filasTop(ctx, c, titulo, vacio, top) {
   const t = H.top;
   cajaOscura(ctx, c.x, c.y, c.w, c.h);
   const x = c.x + H.pad;
-  etiqueta(ctx, 'Top 3 sedes más activas', x, c.y + t.padY);
+  etiqueta(ctx, titulo, x, c.y + t.padY);
 
   if (!top.length) {
     ctx.fillStyle = ESTILO.neutral07;
     ctx.font = fG(500, 28);
     ctx.textBaseline = 'top';
-    const vacio = !huboPartidas ? 'Sin partidas en este periodo' : nadieConCinco ? 'Nadie jugó 5 partidas o más' : 'Sin sedes asignadas';
-    ctx.fillText(vacio,x, c.y + t.padY + t.titulo * 1.4 + 20);
+    ctx.fillText(vacio, x, c.y + t.padY + t.titulo * 1.4 + 20);
     return;
   }
 
@@ -457,14 +476,12 @@ function cajaTop(ctx, c, top, huboPartidas, nadieConCinco, porActivos = false) {
     ctx.textAlign = 'right';
     ctx.fillStyle = ESTILO.blanco;
     ctx.font = fT(700, t.porcentaje);
-    const porcentaje = porActivos ? entero(l.activos) : `${Math.round(l.parte * 100)}%`;
+    const porcentaje = l.cifra;
     const anchoPorcentaje = ctx.measureText(porcentaje).width;
     ctx.fillText(porcentaje, derecha, cy + 1);
 
     ctx.font = fG(500, t.dato);
-    const dato = porActivos
-      ? `activos de ${entero(l.total)} · ${Math.round(l.parte * 100)}%`
-      : `${entero(l.activos)}/${entero(l.total)} jugadores`;
+    const dato = l.dato;
     const xDato = derecha - anchoPorcentaje - 20;
     const anchoDato = ctx.measureText(dato).width;
     ctx.fillStyle = ESTILO.neutral07;

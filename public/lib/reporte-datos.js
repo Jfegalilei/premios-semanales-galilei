@@ -72,7 +72,7 @@ const CONSULTA_DE_TIPO = {
   resumen: 'conocimiento', loc: 'conocimiento', lot: 'conocimiento', dia: 'conocimiento',
   compania: 'premios', premio: 'premios',
   ficha: 'reviews', rev: 'reviews', estrellas: 'reviews', emp: 'reviews', foto: 'reviews',
-  auteco: 'auteco',
+  auteco: 'auteco', qr: 'auteco',
 };
 export function consultaDe({ registros }) {
   for (const r of registros) if (CONSULTA_DE_TIPO[r.tipo]) return CONSULTA_DE_TIPO[r.tipo];
@@ -82,7 +82,7 @@ export function consultaDe({ registros }) {
 // Las filas de una query (ya leídas del CSV o guardadas en Firestore) -> las
 // partes de `datos` que traen.
 export function interpretarTabla({ registros }) {
-  const datos = { resumenes: [], locations: [], dias: [], loterias: [], autecos: [], companias: [], premios: [], ...SIN_REVIEWS() };
+  const datos = { resumenes: [], locations: [], dias: [], loterias: [], autecos: [], escaneos: [], companias: [], premios: [], ...SIN_REVIEWS() };
   for (const r of registros) {
     if (!r.compania) continue;
     if (esAdminDeOtraCompania(r.playerid, r.compania)) continue;
@@ -115,6 +115,14 @@ export function interpretarTabla({ registros }) {
         asesores: aNumero(r.n2),
         faltanEscaneos: aNumero(r.n3),
         faltaJuego: aNumero(r.n4),
+      });
+    } else if (r.tipo === 'qr') {
+      datos.escaneos.push({
+        ...periodo,
+        playerId: r.playerid,
+        nombre: formatearNombre(nombreDe(r)),
+        escaneos: aNumero(r.n1),
+        rol: (r.t1 || '').trim(),
       });
     } else if (r.tipo === 'ficha') {
       datos.fichas.push({ compania: r.compania, id: r.t1, nombre: r.t2 || '' });
@@ -177,7 +185,7 @@ export function interpretarTabla({ registros }) {
   const partes = {};
   if (datos.resumenes.length) Object.assign(partes, { resumenes: datos.resumenes, locations: datos.locations, dias: datos.dias, loterias: datos.loterias });
   if (datos.companias.length || datos.premios.length) Object.assign(partes, { companias: datos.companias, premios: datos.premios });
-  if (datos.autecos.length) partes.autecos = datos.autecos;
+  if (datos.autecos.length || datos.escaneos.length) Object.assign(partes, { autecos: datos.autecos, escaneos: datos.escaneos });
   if (datos.fichas.length) {
     const { fichas, resenas, estrellas, embajadores, fotos } = datos;
     Object.assign(partes, { fichas, resenas, estrellas, embajadores, fotos });
@@ -487,8 +495,8 @@ export function periodoTodoElTiempo(datos) {
   };
 }
 
-// Compañías cuyo Top 3 de sedes va por jugadores activos y no por porcentaje.
-const TOP_POR_ACTIVOS = /auteco/i;
+// Compañías que en vez del Top 3 de sedes llevan el Top 3 de escaneos QR.
+const TOP_QR = /auteco/i;
 
 // Página 1. La query ya trae cada periodo agregado (semanas de lunes a domingo y
 // meses): aquí solo se busca la fila de la compañía y el periodo.
@@ -511,15 +519,19 @@ export function conocimiento(datos, compania, periodo) {
     preguntas: r ? r.preguntas : 0,
     porDia: porDia(datos.dias, compania, periodo),
     // Un jugador inactivo que jugó cuenta en `activos` pero no en `total`: el
-    // porcentaje se topa en 100. En Auteco el Top 3 va por cantidad de
-    // jugadores activos, no por porcentaje (`porActivos`).
-    porActivos: TOP_POR_ACTIVOS.test(compania),
+    // porcentaje se topa en 100.
     locations: datos.locations.filter(delPeriodo(compania, periodo))
       .map((l) => ({ ...l, nombre: l.nombre || 'Sin nombre', parte: l.total ? Math.min(1, l.activos / l.total) : 0 }))
-      .sort(TOP_POR_ACTIVOS.test(compania)
-        ? (a, b) => b.activos - a.activos || b.parte - a.parte
-        : (a, b) => b.parte - a.parte || b.activos - a.activos)
+      .sort((a, b) => b.parte - a.parte || b.activos - a.activos)
       .slice(0, 3),
+    // En Auteco, en vez de las sedes, las 3 personas con más escaneos QR de
+    // baterías (query 4). `cargado`: si se subió esa query.
+    qr: TOP_QR.test(compania) ? {
+      cargado: (datos.autecos?.length || 0) + (datos.escaneos?.length || 0) > 0,
+      top: (datos.escaneos || []).filter(delPeriodo(compania, periodo))
+        .sort((a, b) => b.escaneos - a.escaneos || a.nombre.localeCompare(b.nombre, 'es'))
+        .slice(0, 3),
+    } : null,
   };
 }
 

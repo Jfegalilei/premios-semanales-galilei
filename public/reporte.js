@@ -269,7 +269,7 @@ function alCambiarGuardados(documentos) {
 }
 
 function datosVacios() {
-  return { resumenes: [], locations: [], dias: [], loterias: [], autecos: [], companias: [], premios: [], ...SIN_REVIEWS() };
+  return { resumenes: [], locations: [], dias: [], loterias: [], autecos: [], escaneos: [], companias: [], premios: [], ...SIN_REVIEWS() };
 }
 
 // Cada archivo reemplaza solo lo que trae (ver `interpretarArchivo`) y se guarda
