@@ -487,6 +487,9 @@ export function periodoTodoElTiempo(datos) {
   };
 }
 
+// Compañías cuyo Top 3 de sedes va por jugadores activos y no por porcentaje.
+const TOP_POR_ACTIVOS = /auteco/i;
+
 // Página 1. La query ya trae cada periodo agregado (semanas de lunes a domingo y
 // meses): aquí solo se busca la fila de la compañía y el periodo.
 export function conocimiento(datos, compania, periodo) {
@@ -508,10 +511,14 @@ export function conocimiento(datos, compania, periodo) {
     preguntas: r ? r.preguntas : 0,
     porDia: porDia(datos.dias, compania, periodo),
     // Un jugador inactivo que jugó cuenta en `activos` pero no en `total`: el
-    // porcentaje se topa en 100.
+    // porcentaje se topa en 100. En Auteco el Top 3 va por cantidad de
+    // jugadores activos, no por porcentaje (`porActivos`).
+    porActivos: TOP_POR_ACTIVOS.test(compania),
     locations: datos.locations.filter(delPeriodo(compania, periodo))
       .map((l) => ({ ...l, nombre: l.nombre || 'Sin nombre', parte: l.total ? Math.min(1, l.activos / l.total) : 0 }))
-      .sort((a, b) => b.parte - a.parte || b.activos - a.activos)
+      .sort(TOP_POR_ACTIVOS.test(compania)
+        ? (a, b) => b.activos - a.activos || b.parte - a.parte
+        : (a, b) => b.parte - a.parte || b.activos - a.activos)
       .slice(0, 3),
   };
 }

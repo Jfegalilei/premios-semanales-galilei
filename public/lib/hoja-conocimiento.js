@@ -86,7 +86,7 @@ export function dibujarConocimiento(canvas, op) {
     d.juegos ? entero(d.preguntas) : '—',
   ]);
   tarjetaGrafico(ctx, cajas.grafico, d.porDia);
-  cajaTop(ctx, cajas.top, d.locations, d.juegos > 0, d.mensual && !d.activos);
+  cajaTop(ctx, cajas.top, d.locations, d.juegos > 0, d.mensual && !d.activos, d.porActivos);
 
   ctx.restore();
   return canvas;
@@ -420,7 +420,9 @@ function tarjetaGrafico(ctx, c, serie) {
 // Las tres sedes con mayor porcentaje de sus jugadores con partidas: el
 // porcentaje grande a la derecha y, a su lado, cuántos de cuántos.
 // En el mes solo cuentan quienes jugaron 5 partidas o más (como en activos).
-function cajaTop(ctx, c, top, huboPartidas, nadieConCinco) {
+// Con `porActivos` (Auteco) van las de más jugadores activos: la cifra grande es
+// esa cantidad y, a su lado, de cuántos y el porcentaje.
+function cajaTop(ctx, c, top, huboPartidas, nadieConCinco, porActivos = false) {
   const t = H.top;
   cajaOscura(ctx, c.x, c.y, c.w, c.h);
   const x = c.x + H.pad;
@@ -455,12 +457,14 @@ function cajaTop(ctx, c, top, huboPartidas, nadieConCinco) {
     ctx.textAlign = 'right';
     ctx.fillStyle = ESTILO.blanco;
     ctx.font = fT(700, t.porcentaje);
-    const porcentaje = `${Math.round(l.parte * 100)}%`;
+    const porcentaje = porActivos ? entero(l.activos) : `${Math.round(l.parte * 100)}%`;
     const anchoPorcentaje = ctx.measureText(porcentaje).width;
     ctx.fillText(porcentaje, derecha, cy + 1);
 
     ctx.font = fG(500, t.dato);
-    const dato = `${entero(l.activos)}/${entero(l.total)} jugadores`;
+    const dato = porActivos
+      ? `activos de ${entero(l.total)} · ${Math.round(l.parte * 100)}%`
+      : `${entero(l.activos)}/${entero(l.total)} jugadores`;
     const xDato = derecha - anchoPorcentaje - 20;
     const anchoDato = ctx.measureText(dato).width;
     ctx.fillStyle = ESTILO.neutral07;
