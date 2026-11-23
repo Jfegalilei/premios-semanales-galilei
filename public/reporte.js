@@ -453,7 +453,7 @@ function reporteDe(compania) {
   const datos = datosDel(periodo);
   const contratado = contratadoDe(compania);
   const visible = vistas.visibles(compania, contratado);
-  return {
+  const r = {
     compania,
     contratado,
     servicios: visible,
@@ -467,6 +467,11 @@ function reporteDe(compania) {
     loterias: loteriasDe(compania, visible),
     logoCliente: estado.logos.get(slug(compania)) || null,
   };
+  // Hasta dónde llega la fecha del chip: con días sin cargar, el último día con
+  // datos y no el final del periodo (si no hay ningún día, el periodo entero).
+  const falta = incompleto(periodo, r);
+  r.hasta = falta && falta.hasta >= periodo.inicio ? falta.hasta : periodo.fin;
+  return r;
 }
 
 // Lo que tiene la compañía, con la hoja que pide las metas: va con training,

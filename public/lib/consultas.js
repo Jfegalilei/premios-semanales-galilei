@@ -8,7 +8,8 @@
 //            en el mes), n2 juegos, n3 segundos, n4 preguntas respondidas
 //   loc      n1 jugadores activos (como en resumen: en el mes, 5+ partidas),
 //            n2 jugadores activos de la sede (location), t1 nombre
-//            (las 3 con mayor porcentaje de jugadores activos)
+//            (las 3 con mayor porcentaje de jugadores activos y las 3 con más
+//            jugadores activos; el reporte elige: Auteco va por cantidad)
 //   lot      n1 clasificados a la GaliLotería (15+ partidas en el mes y 30+
 //            puntos en al menos una)   (solo meses)
 //   dia      fecha, n1 preguntas respondidas ese día   (para el gráfico; sin periodo)
@@ -98,7 +99,7 @@ gp AS(SELECT g.*,co,l,per,ini FROM g JOIN pc ON i=pi,LATERAL(VALUES('semana',DAT
 j AS(SELECT co,per,ini,pi,l,COUNT(*)n,SUM(s)s,SUM(y)y,MAX(z)z FROM gp GROUP BY 1,2,3,4,5),
 lc AS(SELECT co,l,COUNT(*)t FROM pc GROUP BY 1,2)
 SELECT 'resumen' tipo,co compania,per periodo,ini fecha,NULL::uuid player_id,COUNT(*)FILTER(WHERE per='semana'OR n>=5) n1,SUM(n) n2,SUM(s) n3,SUM(y) n4,NULL t1 FROM j GROUP BY 2,3,4
-UNION ALL SELECT 'loc',co,per,ini,NULL,a,t,NULL,NULL,o.name FROM(SELECT co,per,ini,j.l,COUNT(*)a,t,ROW_NUMBER()OVER(PARTITION BY co,per,ini ORDER BY COUNT(*)::float/t DESC,COUNT(*) DESC)r FROM j JOIN lc USING(co,l) WHERE per='semana'OR n>=5 GROUP BY 1,2,3,4,6)x JOIN location o ON o.location_id=x.l WHERE r<=3
+UNION ALL SELECT 'loc',co,per,ini,NULL,a,t,NULL,NULL,o.name FROM(SELECT co,per,ini,j.l,COUNT(*)a,t,ROW_NUMBER()OVER(PARTITION BY co,per,ini ORDER BY COUNT(*)::float/t DESC,COUNT(*) DESC)r,ROW_NUMBER()OVER(PARTITION BY co,per,ini ORDER BY COUNT(*) DESC,COUNT(*)::float/t DESC)r2 FROM j JOIN lc USING(co,l) WHERE per='semana'OR n>=5 GROUP BY 1,2,3,4,6)x JOIN location o ON o.location_id=x.l WHERE r<=3 OR r2<=3
 UNION ALL SELECT 'lot',co,per,ini,NULL,COUNT(*)FILTER(WHERE n>=15 AND z>=30),NULL,NULL,NULL,NULL FROM j WHERE per='mes' GROUP BY 2,3,4
 UNION ALL SELECT 'dia',co,NULL,f,NULL,SUM(y),NULL,NULL,NULL,NULL FROM g JOIN pc ON i=pi GROUP BY 2,4`,
   },
@@ -169,7 +170,7 @@ j AS(SELECT co,pi,l,COUNT(*)n,SUM(s)s,SUM(y)y FROM g GROUP BY 1,2,3),
 um AS(SELECT 5*((EXTRACT(YEAR FROM MAX(f))-EXTRACT(YEAR FROM MIN(f)))*12+EXTRACT(MONTH FROM MAX(f))-EXTRACT(MONTH FROM MIN(f))+1)::int u FROM g),
 lc AS(SELECT co,l,COUNT(*)t FROM pc GROUP BY 1,2)
 SELECT 'resumen' tipo,co compania,'total' periodo,NULL::date fecha,NULL::uuid player_id,COUNT(*)FILTER(WHERE n>=u) n1,SUM(n) n2,SUM(s) n3,SUM(y) n4,u::text t1 FROM j,um GROUP BY 2,u
-UNION ALL SELECT 'loc',co,'total',NULL,NULL,a,t,NULL,NULL,o.name FROM(SELECT co,j.l,COUNT(*)a,t,ROW_NUMBER()OVER(PARTITION BY co ORDER BY COUNT(*)::float/t DESC,COUNT(*) DESC)r FROM j JOIN lc USING(co,l),um WHERE n>=u GROUP BY 1,2,4)x JOIN location o ON o.location_id=x.l WHERE r<=3
+UNION ALL SELECT 'loc',co,'total',NULL,NULL,a,t,NULL,NULL,o.name FROM(SELECT co,j.l,COUNT(*)a,t,ROW_NUMBER()OVER(PARTITION BY co ORDER BY COUNT(*)::float/t DESC,COUNT(*) DESC)r,ROW_NUMBER()OVER(PARTITION BY co ORDER BY COUNT(*) DESC,COUNT(*)::float/t DESC)r2 FROM j JOIN lc USING(co,l),um WHERE n>=u GROUP BY 1,2,4)x JOIN location o ON o.location_id=x.l WHERE r<=3 OR r2<=3
 UNION ALL SELECT 'dia',co,'total',f,NULL,SUM(y),NULL,NULL,NULL,NULL FROM g GROUP BY 2,4`,
     },
     {

@@ -272,7 +272,8 @@ export function componerReporte(r, recursos, lienzos) {
       // «Todo el tiempo» puede pasar de un año a otro: con el año.
       etiqueta: r.periodo.tipo === 'total'
         ? `${diaMes(r.periodo.inicio)} ${r.periodo.inicio.slice(0, 4)} - ${diaMes(r.periodo.fin)} ${r.periodo.fin.slice(0, 4)}`
-        : `${diaMes(r.periodo.inicio)} - ${diaMes(r.periodo.fin)}`,
+        // Con días sin cargar, hasta el último día con datos (`r.hasta`).
+        : `${diaMes(r.periodo.inicio)} - ${diaMes(r.hasta || r.periodo.fin)}`,
       trofeo: recursos.trofeo,
     },
   };
